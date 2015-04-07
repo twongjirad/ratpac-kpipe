@@ -1,0 +1,10 @@
+Chroma-RAT interface
+
+Options for running Chroma
+
+(1) Real-time
+(2) Post-run photon propagation and Tree update
+
+Components:
+
+- Track to numpy
