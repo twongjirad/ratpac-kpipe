@@ -1,0 +1,23 @@
+/glg4debug/glg4param omit_muon_processes  0.0
+/glg4debug/glg4param omit_hadronic_processes  1.0
+
+/rat/db/set DETECTOR experiment "pingu_dom"
+/rat/db/set DETECTOR geo_file "pingu_dom/pingu_dom.geo"
+#/tracking/storeTrajectory 1
+
+/run/initialize
+
+# BEGIN EVENT LOOP
+#/rat/proc simpledaq
+/rat/proc count
+/rat/procset update 1
+
+# Use IO.default_output_filename
+/rat/proclast outroot
+#END EVENT LOOP
+
+/generator/add combo gun2:fillshell
+/generator/vtx/set mu-  0 0 0 0 1000 1000
+/generator/pos/set 0 0 0 101 102 pvS2
+
+/run/beamOn 100
