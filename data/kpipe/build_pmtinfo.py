@@ -2,7 +2,7 @@ import StringIO
 from ROOT import *
 from array import array
 
-def save_as_roottree( npmts, ip_pmtdict, op_pmtdict ):
+def save_as_roottree( npmts, ip_pmtdict, op_pmtdict, endcap_pmtdict ):
     r = TFile('PMTINFO.root', 'recreate')
     t = TTree('pmtinfo','PMT Positions')
     opdetid = array('i',[0])
@@ -19,13 +19,15 @@ def save_as_roottree( npmts, ip_pmtdict, op_pmtdict ):
             pmtdict = ip_pmtdict
         elif ipmt in op_pmtdict:
             pmtdict = op_pmtdict
+        elif ipmt in endcap_pmtdict:
+            pmtdict = endcap_pmtdict
         x[0] = pmtdict[ipmt][0]
         y[0] = pmtdict[ipmt][1]
         z[0] = pmtdict[ipmt][2]
         t.Fill()
     r.Write()
 
-def build_pmtinfo(npmts,ip_pmtdict, op_pmtdict):
+def build_pmtinfo(npmts,ip_pmtdict, op_pmtdict, endcap_pmtdict):
     """generates PMTINFO.db.
     
     This is needed because we hacked RAT.  It stil thinks we are using PMTs,
@@ -51,6 +53,10 @@ def build_pmtinfo(npmts,ip_pmtdict, op_pmtdict):
             xposlist += " %.4f"%(op_pmtdict[n][0])
             yposlist += " %.4f"%(op_pmtdict[n][1])
             zposlist += " %.4f"%(op_pmtdict[n][2])
+        elif n in endcap_pmtdict:
+            xposlist += " %.4f"%(endcap_pmtdict[n][0])
+            yposlist += " %.4f"%(endcap_pmtdict[n][1])
+            zposlist += " %.4f"%(endcap_pmtdict[n][2])
             
         typelist += "1"
         if n!=npmts-1:
@@ -68,7 +74,7 @@ def build_pmtinfo(npmts,ip_pmtdict, op_pmtdict):
     print >> pmtinfo," type:",typelist,","
     print >> pmtinfo,"}"
 
-    save_as_roottree( npmts, ip_pmtdict, op_pmtdict )
+    save_as_roottree( npmts, ip_pmtdict, op_pmtdict, endcap_pmtdict )
     return pmtinfo.getvalue()
 
 if __name__ == "__main__":

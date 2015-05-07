@@ -46,6 +46,23 @@ def generate_gdml_file( gdml_filename, pmtinfo_filename, ip_nsipms_per_ring, ip_
             rotphi = -90.0 + phi
             op_sipmdict[isipm] = ( x, y, z, -rotphi, x2, y2, istring )
             isipm += 1
+
+    # OD Endcap Sipms
+    # we use the inner pipe hoop here -- but I imagine affixing the SiPMs to face outward
+    endcap_sipmdict = {}
+    for zdir in [-1.0,1.0]:
+        for iendcap_sipm in xrange(0,ip_nsipms_per_ring):
+            z = zdir*0.5*(9005.0) + zdir*(1.0)
+            phi = iendcap_sipm*phi_sipm_gap
+            x = (ip_radius_cm)*cos( phi*pi/180.0 )
+            y = (ip_radius_cm)*sin( phi*pi/180.0 )
+            x2 = (ip_radius_cm-0.1)*cos( phi*pi/180.0 )
+            y2 = (ip_radius_cm-0.1)*sin( phi*pi/180.0 )
+            z2 = z + zdir*0.1
+            rotphi = -zdir*90.0
+            endcap_sipmdict[isipm] = ( x, y, z, rotphi, x, y, z2, iendcap_sipm )
+            isipm += 1
+            
             
     targetvol = "  <volume name=\"volTarget\">\n"
     targetvol+= "    <materialref ref=\"scintillator\"/>\n"
@@ -103,6 +120,28 @@ def generate_gdml_file( gdml_filename, pmtinfo_filename, ip_nsipms_per_ring, ip_
         vetovol+="      <position name=\"posVolInactiveSiPM%d\" unit=\"cm\" x=\"%.4f\" y=\"%.4f\" z=\"%.4f\"/>\n"%(okey, transform[0], transform[1], transform[2] )
         vetovol+="      <rotation name=\"rotVolInactiveSiPM%d\" x=\"0.0\" y=\"0.0\" z=\"%.4f\"/>\n"%(okey,  transform[3]*pi/180.0)
         vetovol+="    </physvol>\n"
+
+    # END CAP
+    ekeys = endcap_sipmdict.keys()
+    ekeys.sort()
+    for ekey in ekeys:
+        transform = endcap_sipmdict[ekey]
+        # active
+        vetovol+="    <physvol name=\"SiPM%d\">\n"%(ekey)
+        vetovol+="      <volumeref ref=\"volActiveSiPM\"/>\n"
+        vetovol+="      <position name=\"posVolActiveSiPM%d\" unit=\"cm\" x=\"%.4f\" y=\"%.4f\" z=\"%.4f\"/>\n"%(ekey, 
+                                                                                                                 transform[4], 
+                                                                                                                 transform[5], 
+                                                                                                                 transform[6] )
+        vetovol+="      <rotation name=\"rotVolActiveSiPM%d\" x=\"%.4f\" y=\"0.0\" z=\"0.0\"/>\n"%(ekey,  transform[3]*pi/180.0)
+        vetovol+="    </physvol>\n"
+        # inactive
+        vetovol+="    <physvol name=\"InactiveSiPM%d\">\n"%(ekey)
+        vetovol+="      <volumeref ref=\"volInactiveSiPM\"/>\n"
+        vetovol+="      <position name=\"posVolInactiveSiPM%d\" unit=\"cm\" x=\"%.4f\" y=\"%.4f\" z=\"%.4f\"/>\n"%(ekey, transform[0], transform[1], transform[2] )
+        vetovol+="      <rotation name=\"rotVolInactiveSiPM%d\" x=\"%.4f\" y=\"0.0\" z=\"0.0\"/>\n"%(ekey,  transform[3]*pi/180.0)
+        vetovol+="    </physvol>\n"
+        
     vetovol+="  </volume>\n"
         
     vetovol_nosipms  = "  <volume name=\"volVetoRegion\">\n"
@@ -115,15 +154,15 @@ def generate_gdml_file( gdml_filename, pmtinfo_filename, ip_nsipms_per_ring, ip_
     vetovol_nosipms += "  </volume>\n"
 
 
-    #fgdml = open( gdml_filename, 'w' )
-    #print >> fgdml, part1+"\n"+targetvol+"\n"+part2+"\n"+vetovol+"\n"+part3+"\n"
-    #fgdml.close()
+    fgdml = open( gdml_filename, 'w' )
+    print >> fgdml, part1+"\n"+targetvol+"\n"+part2+"\n"+vetovol+"\n"+part3+"\n"
+    fgdml.close()
 
-    #fgdml = open( gdml_filename.replace(".gdml","_nosipms.gdml"), 'w' )
-    #print >> fgdml, part1+"\n"+targetvol_nosipms+"\n"+part2+"\n"+vetovol_nosipms+"\n"+part3+"\n"
-    #fgdml.close()
+    fgdml = open( gdml_filename.replace(".gdml","_nosipms.gdml"), 'w' )
+    print >> fgdml, part1+"\n"+targetvol_nosipms+"\n"+part2+"\n"+vetovol_nosipms+"\n"+part3+"\n"
+    fgdml.close()
 
-    pmtinfo = build_pmtinfo( isipm, ip_sipmdict, op_sipmdict )
+    pmtinfo = build_pmtinfo( isipm, ip_sipmdict, op_sipmdict, endcap_sipmdict )
     fpmtinfo = open( pmtinfo_filename, 'w' )
     print >> fpmtinfo, pmtinfo+'\n'
     fpmtinfo.close()
