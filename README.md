@@ -20,6 +20,11 @@ Simulation code for KPIPE.
 * ./configure
 * scons
 
+## important branches
+* develop: the head of the repo.
+* master: only tagged versions and hot-fixes get checked in here
+* dchooz_running_on_tier2: code to be run on tier 2 is here
+
 ## Running
 * rat
 * /control/execute mac/kpipe.mac (will bring up and initialize geometry)
