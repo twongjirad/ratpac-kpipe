@@ -15,7 +15,7 @@ mkdir -p ${_CONDOR_SCRATCH_DIR}
 source ratpac-kpipe/tier2scripts/env_condornode.sh
 
 # GO TO EXECUTABLE
-cd ratpac-kpipe/analyze
+cd ratpac-kpipe/analysis
 
 # RUN RAT
 ./analyze_data ${INPUT} ${OUTPUT}  ${PMTINFO}
