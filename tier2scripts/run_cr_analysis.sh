@@ -18,5 +18,7 @@ source ratpac-kpipe/tier2scripts/env_condornode.sh
 cd ratpac-kpipe/analysis
 
 # RUN RAT
-./analyze_data ${INPUT} ${OUTPUT}  ${PMTINFO}
+./analyze_data ../../${INPUT} ../../${OUTPUT}  ../../${PMTINFO}
+
+cd ../../
 
