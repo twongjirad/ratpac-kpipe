@@ -16,7 +16,7 @@ CFLAGS += $(ROOT_INCLUDES) $(RAT_INCLUDES) $(LOCAL_INC)
 LDFLAGS += `root-config --ldflags` 
 LDLIBS = $(RAT_LIBS) $(ROOT_LIBS) -lstdc++
 
-all: scrape_data libkptrigger.so analyze_data
+all: scrape_data libkptrigger.so analyze_data analyze_crdata
 
 scrape_data.o: scrape_data.cc
 	$(CC) $(CFLAGS) -c -o $@ $^
@@ -40,5 +40,11 @@ analyze_data.o: analyze_data.cc
 analyze_data: analyze_data.o libkptrigger.so
 	$(CC) $(LDFLAGS) -o $@ analyze_data.o $(LDLIBS) -lkptrigger
 
+analyze_crdata.o: analyze_crdata.cc
+	$(CC) $(CFLAGS) -c -o $@ $^
+
+analyze_crdata: analyze_crdata.o libkptrigger.so
+	$(CC) $(LDFLAGS) -o $@ analyze_crdata.o $(LDLIBS) -lkptrigger
+
 clean: 
-	rm *.o scrape_data libkptrigger.so analyze_data
+	rm *.o scrape_data libkptrigger.so analyze_data analyze_crdata
