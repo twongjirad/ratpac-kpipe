@@ -102,6 +102,8 @@ def launch_jobs( job_json, inputlists, outputlists, arglists, check_for_out=True
         outputs = outputlists[ jobid ]
         print inputs
         generate_condor_submtfile( jobid, condorfile, inputs, outputs, job_json["job"]["script"], arglists[jobid] )
+        command = "condor_submit %s"%(condorfile)
+        os.system( command )
         break
 
 if __name__ == "__main__":

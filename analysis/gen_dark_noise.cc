@@ -8,10 +8,12 @@
 void gen_dark_noise( RAT::DS::MC* mc, std::string pmtinfofile, double sipm_darkrate, double window_ns ) {
 
   TRandom3* fRand = new TRandom3( time(NULL) );
-  const int NPMTS = 90000 + 2000; // ID + OD tubes
+  //const int NPMTS = 90000 + 2000; // ID + OD tubes
+  const int NPMTS = 90000 + 1200;
   bool hashit[NPMTS] = { false };
   double lambda = window_ns*(sipm_darkrate*1.0e-9);
   PMTinfo* pmtinfo = PMTinfo::GetPMTinfo( pmtinfofile );
+  std::cout << "load pmt info: " << pmtinfofile << std::endl;
 
   // we have to go through list of SiPMS with hits first
   // then go through ones without
@@ -19,6 +21,8 @@ void gen_dark_noise( RAT::DS::MC* mc, std::string pmtinfofile, double sipm_darkr
   int ndark = 0;
   for (int ipmt=0; ipmt<mc->GetMCPMTCount(); ipmt++) {
     RAT::DS::MCPMT* pmt = mc->GetMCPMT( ipmt );
+    if ( pmt==NULL )
+      continue;
     int pmtid = pmt->GetID();
     hashit[pmtid] = true;
     npe += pmt->GetMCPhotonCount();
@@ -73,4 +77,6 @@ void gen_dark_noise( RAT::DS::MC* mc, std::string pmtinfofile, double sipm_darkr
 
   mc->SetNumPE( npe );
   mc->SetNumDark( ndark );
+
+  delete fRand;
 }

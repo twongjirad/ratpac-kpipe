@@ -21,6 +21,7 @@ int main( int nargs, char** argv ) {
   std::string outfile = argv[2];
   std::string pmtinfofile = "../data/kpipe/PMTINFO.root";
   pmtinfofile = argv[3];
+  std::cout << "pmt info file: " << pmtinfofile << std::endl;
 
   RAT::DSReader* ds = new RAT::DSReader( inputfile.c_str() ); 
   int first_od_sipmid = 90000;
@@ -28,9 +29,10 @@ int main( int nargs, char** argv ) {
   double decay_weights[2] = { 0.6, 0.4 };
   double decay_constants_ns[2] = { 45.0, 67.6 };
   double sipm_darkrate_hz = 1.0e6;
+  double window_ns = 40.0;
   double threshold = 500.0;
-  //double sipm_darkrate_hz = 0.0;
-  //double threshold = 10.0;
+//   double sipm_darkrate_hz = 0.0;
+//   double threshold = 10.0;
 
   TFile* out = new TFile(outfile.c_str(), "RECREATE" );
   // variables we want
@@ -126,14 +128,6 @@ int main( int nargs, char** argv ) {
     // --------------------------------
     // GET RAT MC OBJECT
     RAT::DS::MC* mc = root->GetMC();
-
-    // --------------------------------
-    // GENERATE DARK NOISE
-    if ( sipm_darkrate_hz>0 ) 
-      gen_dark_noise( mc, pmtinfofile, sipm_darkrate_hz, 10000 );
-
-    // --------------------------------
-    // PROCESS RAT FILE
     if ( mc==NULL )
       break;
     npe = mc->GetNumPE();
@@ -145,8 +139,16 @@ int main( int nargs, char** argv ) {
       continue;
     }
 
+    // --------------------------------
+    // GENERATE DARK NOISE
+    if ( sipm_darkrate_hz>0 ) 
+      gen_dark_noise( mc, pmtinfofile, sipm_darkrate_hz, 10000 );
+
+    // --------------------------------
+    // PROCESS RAT FILE
+
     // true vertex
-    //std::cout << "mc part: " << mc->GetMCParticleCount() << " " <<  mc->GetMCParticle(0) << std::endl;
+    std::cout << "mc part: " << mc->GetMCParticleCount() << " " <<  mc->GetMCParticle(0) << std::endl;
     posv[0] = mc->GetMCParticle(0)->GetPosition().X()/10.0; //change to cm
     posv[1] = mc->GetMCParticle(0)->GetPosition().Y()/10.0; //change to cm
     posv[2] = mc->GetMCParticle(0)->GetPosition().Z()/10.0; //change to cm
@@ -209,10 +211,14 @@ int main( int nargs, char** argv ) {
     if ( max_hoopid>=900 )
       max_hoopid = 900;
 
+    double expected_darkrate = (double( max_hoopid - min_hoopid )*100)*(sipm_darkrate_hz*1.0e-9)*window_ns;
+    double sig_darkrate = sqrt( expected_darkrate );
+    threshold = expected_darkrate + 5.0*sig_darkrate;
+
     // --------------------------------
     // TRIGGER
     npulses = find_trigger( mc, 
-			    threshold, 40.0, sipm_darkrate_hz,
+			    threshold, window_ns, sipm_darkrate_hz,
 			    true, min_hoopid, max_hoopid,
 			    n_decay_constants, decay_weights, decay_constants_ns,
 			    pulselist, 90000, false, twfm );
@@ -222,6 +228,7 @@ int main( int nargs, char** argv ) {
 			 true, min_hoopid, max_hoopid,
 			 45.0, 90000, false );
     std::cout << "  posv: " << posv[0] << ", " << posv[1] << ", " << posv[2] << " rv=" << rv << std::endl;
+    std::cout << "  threshold: " << threshold << std::endl;
     std::cout << "  npulses=" << npulses << std::endl;
     for ( KPPulseListIter it=pulselist.begin(); it!=pulselist.end(); it++ )
       std::cout << "    - tstart=" << (*it)->tstart << " tpeak=" << (*it)->tpeak << " pe=" << (*it)->pe << " (dark=" << (*it)->pe_dark << ", adjusted=" << (*it)->pe_adjusted << ") z=" << (*it)->z << std::endl;
