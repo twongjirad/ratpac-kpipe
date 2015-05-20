@@ -25,6 +25,7 @@ int main( int nargs, char** argv ) {
 
   RAT::DSReader* ds = new RAT::DSReader( inputfile.c_str() ); 
   int first_od_sipmid = 90000;
+  const int NPMTS = 90000+1200;
   int n_decay_constants = 2;
   double decay_weights[2] = { 0.6, 0.4 };
   double decay_constants_ns[2] = { 45.0, 67.6 };
@@ -54,6 +55,8 @@ int main( int nargs, char** argv ) {
   std::vector<double> peakamp;
   std::vector<double> tend;
   std::vector<double> pulsepe;
+  std::vector<double> pulsepedark;
+  std::vector<double> pulseperaw;
   std::vector<double> pulsez;
   std::vector<double> twfm;
   
@@ -82,12 +85,14 @@ int main( int nargs, char** argv ) {
   tree->Branch( "tend",  &tend );
   tree->Branch( "peakamp",  &peakamp );
   tree->Branch( "pulsepe",  &pulsepe );
+  tree->Branch( "pulsepedark",  &pulsepedark );
+  tree->Branch( "pulseperaw",  &pulseperaw );
   tree->Branch( "pulsez",  &pulsez );
-  tree->Branch( "twfm", &twfm );
+  //tree->Branch( "twfm", &twfm );
 
   int ievent = 0;
   int nevents = ds->GetTotal();
-  //nevents = 30;
+  //nevents = 50;
 
   KPPulseList pulselist;
 
@@ -115,6 +120,8 @@ int main( int nargs, char** argv ) {
     tend.clear();
     peakamp.clear();
     pulsepe.clear();
+    pulsepedark.clear();
+    pulseperaw.clear();
     pulsez.clear();
     twfm.clear();
     // --------------------------------
@@ -181,7 +188,10 @@ int main( int nargs, char** argv ) {
     idpmts = odpmts = 0;
     npe = mc->GetNumPE();
     idpe = odpe = 0;
-    for ( int ipmt=0; ipmt<npmts; ipmt++ ) {
+    int num = npmts;
+    if ( sipm_darkrate_hz>0 )
+      num = NPMTS;
+    for ( int ipmt=0; ipmt<num; ipmt++ ) {
       RAT::DS::MCPMT* pmt = mc->GetMCPMT( ipmt );
       int nhits = pmt->GetMCPhotonCount();
       int pmtid = pmt->GetID();
@@ -238,8 +248,10 @@ int main( int nargs, char** argv ) {
       tpeak.push_back( (*it)->tpeak );
       tend.push_back( (*it)->tend );
       peakamp.push_back( (*it)->peakamp );
-      pulsepe.push_back( (*it)->pe ); // not yet calculated
-      pulsez.push_back( (*it)->z ); // not yet calculated
+      pulseperaw.push_back( (*it)->pe ); 
+      pulsepedark.push_back( (*it)->pe_dark ); 
+      pulsepe.push_back( (*it)->pe_adjusted ); 
+      pulsez.push_back( (*it)->z ); 
       delete *it;
       *it = NULL;
     }
