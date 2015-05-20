@@ -309,7 +309,10 @@ int main( int nargs, char** argv ) {
 			    n_decay_constants, decay_weights, decay_constants_ns,
 			    pulselist, 90000, false, twfm );
 
-    assign_pulse_charge( mc, pmtinfofile, pulselist, 45.0, 90000, false );
+    assign_pulse_charge( mc, pmtinfofile, pulselist,
+			 1.0e6,
+			 false, 0, 0,
+			 45.0, 90000, false );
     std::cout << "  posv: " << posv[0] << ", " << posv[1] << ", " << posv[2] << std::endl;
     std::cout << "  npulses=" << npulses << std::endl;
     for ( KPPulseListIter it=pulselist.begin(); it!=pulselist.end(); it++ )

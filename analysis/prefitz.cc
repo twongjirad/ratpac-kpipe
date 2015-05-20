@@ -39,13 +39,13 @@ double calc_prefitz( RAT::DS::MC* mc, std::string pmtinfofile, double darkrate_h
 
   }
 
-  std::cout << "HOOP TOTALS" << std::endl;
+  //std::cout << "HOOP TOTALS" << std::endl;
   double z_hoop = 0.0;
   double hooppe = 0.0;
   maxhoop = -1;
   double maxhoop_pe = 0.;
   for (int ihoop=0; ihoop<nhoops; ihoop++) {
-    std::cout << " [hoop " << ihoop << ", z=" << hoop_z[ihoop] << "] " << hoop_totals[ihoop] << ", " << hoop_totals_adjusted[ihoop] << std::endl;
+    //std::cout << " [hoop " << ihoop << ", z=" << hoop_z[ihoop] << "] " << hoop_totals[ihoop] << ", " << hoop_totals_adjusted[ihoop] << std::endl;
     z_hoop += hoop_z[ihoop]*(hoop_totals[ihoop]*hoop_totals[ihoop]);
     hooppe += hoop_totals[ihoop]*hoop_totals[ihoop];
 
@@ -58,8 +58,8 @@ double calc_prefitz( RAT::DS::MC* mc, std::string pmtinfofile, double darkrate_h
     
   z_hoop /= hooppe;
 
-  std::cout << "Max hoop: " << maxhoop << " z=" << hoop_z[maxhoop] << std::endl;
-  std::cout << "PE-weighted hoop z: " << z_hoop << std::endl;
+  //std::cout << "Max hoop: " << maxhoop << " z=" << hoop_z[maxhoop] << std::endl;
+  //std::cout << "PE-weighted hoop z: " << z_hoop << std::endl;
 
   if ( hooppe>0.0 ) {
     return hoop_z[maxhoop];

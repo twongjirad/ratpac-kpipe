@@ -27,6 +27,10 @@ int main( int nargs, char** argv ) {
   int n_decay_constants = 2;
   double decay_weights[2] = { 0.6, 0.4 };
   double decay_constants_ns[2] = { 45.0, 67.6 };
+  double sipm_darkrate_hz = 1.0e6;
+  double threshold = 500.0;
+  //double sipm_darkrate_hz = 0.0;
+  //double threshold = 10.0;
 
   TFile* out = new TFile(outfile.c_str(), "RECREATE" );
   // variables we want
@@ -50,11 +54,6 @@ int main( int nargs, char** argv ) {
   std::vector<double> pulsepe;
   std::vector<double> pulsez;
   std::vector<double> twfm;
-//   double ttrig[10];
-//   double tpeak[10];
-//   double peakamp[10];
-//   double tend[10];
-//   double pulsepe[10];
   
   TTree* tree = new TTree( "mcdata", "MC Data" );
   // recon
@@ -121,12 +120,20 @@ int main( int nargs, char** argv ) {
     if ( ievent%1000==0 )
       std::cout << "Event " << ievent << std::endl;
 
+    std::cout << "------------------------------------------" << std::endl;
+    std::cout << "EVENT " << ievent << std::endl;
+
+    // --------------------------------
+    // GET RAT MC OBJECT
     RAT::DS::MC* mc = root->GetMC();
 
-    std::cout << "event " << ievent << ", npe=" << mc->GetNumPE() << " in " << mc->GetMCPMTCount() << std::endl;
-    gen_dark_noise( mc, pmtinfofile, 1.0e6, 10000 );
-    std::cout << "  finished dark noise gen, npe=" << mc->GetNumPE() << " in " << mc->GetMCPMTCount() << std::endl;
+    // --------------------------------
+    // GENERATE DARK NOISE
+    if ( sipm_darkrate_hz>0 ) 
+      gen_dark_noise( mc, pmtinfofile, sipm_darkrate_hz, 10000 );
 
+    // --------------------------------
+    // PROCESS RAT FILE
     if ( mc==NULL )
       break;
     npe = mc->GetNumPE();
@@ -164,6 +171,7 @@ int main( int nargs, char** argv ) {
       else if ( mc->GetMCParticle(ipart)->GetPDGCode()==2212 ) {
 	totkeprotonv += mc->GetMCParticle(ipart)->GetKE();
       }
+      std::cout << "  particle=" << ipart << " pdg=" << mc->GetMCParticle(ipart)->GetPDGCode() << " ke=" << mc->GetMCParticle(ipart)->GetKE() << std::endl;
     }
 
     // count stuff
@@ -186,13 +194,13 @@ int main( int nargs, char** argv ) {
       }
     }
 
-    std::cout << "------------------------------------------" << std::endl;
-    std::cout << "EVENT " << ievent << std::endl;
     std::cout << "  ID PEs: " << idpe << " PMTs: " << idpmts << std::endl;
     std::cout << "  OD PEs: " << odpe << " PMTs: " << odpmts << std::endl;
 
+    // --------------------------------
+    // Find Z of the first pulse
     int maxhoop = 0;
-    prefit_z_cm = calc_prefitz( mc, pmtinfofile, 1.0e6, 500.0, 90000, 2000, maxhoop );
+    prefit_z_cm = calc_prefitz( mc, pmtinfofile, sipm_darkrate_hz, 500.0, 90000, 2000, maxhoop );
     std::cout << "  prefit z: " << prefit_z_cm << " maxhoop=" << maxhoop << std::endl;
     int min_hoopid = maxhoop-50;
     int max_hoopid = maxhoop+50;
@@ -201,17 +209,22 @@ int main( int nargs, char** argv ) {
     if ( max_hoopid>=900 )
       max_hoopid = 900;
 
+    // --------------------------------
     // TRIGGER
-    npulses = find_trigger( mc, 500.0+50.0, 5.0, 10.0, 
+    npulses = find_trigger( mc, 
+			    threshold, 40.0, sipm_darkrate_hz,
 			    true, min_hoopid, max_hoopid,
 			    n_decay_constants, decay_weights, decay_constants_ns,
 			    pulselist, 90000, false, twfm );
 
-    assign_pulse_charge( mc, pmtinfofile, pulselist, 45.0, 90000, false );
-    std::cout << "  posv: " << posv[0] << ", " << posv[1] << ", " << posv[2] << std::endl;
+    assign_pulse_charge( mc, pmtinfofile, pulselist, 
+			 sipm_darkrate_hz,
+			 true, min_hoopid, max_hoopid,
+			 45.0, 90000, false );
+    std::cout << "  posv: " << posv[0] << ", " << posv[1] << ", " << posv[2] << " rv=" << rv << std::endl;
     std::cout << "  npulses=" << npulses << std::endl;
     for ( KPPulseListIter it=pulselist.begin(); it!=pulselist.end(); it++ )
-      std::cout << "    - tstart=" << (*it)->tstart << " tpeak=" << (*it)->tpeak << " pe=" << (*it)->pe << " z=" << (*it)->z << std::endl;
+      std::cout << "    - tstart=" << (*it)->tstart << " tpeak=" << (*it)->tpeak << " pe=" << (*it)->pe << " (dark=" << (*it)->pe_dark << ", adjusted=" << (*it)->pe_adjusted << ") z=" << (*it)->z << std::endl;
 
     for ( KPPulseListIter it=pulselist.begin(); it!=pulselist.end(); it++ ) {
       ttrig.push_back( (*it)->tstart );

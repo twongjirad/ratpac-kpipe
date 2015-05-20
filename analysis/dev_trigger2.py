@@ -30,17 +30,19 @@ out = ROOT.TFile('output_test.root','recreate')
 c = ROOT.TCanvas('c','',1200,1200)
 c.Divide(1,2)
 
-window = 10
-thresh = 125
-tave = 20
+window = 40
+tave = 40
 darkrate = 1.0e6
 nsipms = 100*100
 nexp_dark = darkrate*1.0e-9*window*nsipms
+staterr = sqrt(window*darkrate*1.0e-9*nsipms)
+thresh = nexp_dark + 5.0*staterr
+print "Expected dark rate in window: ",nexp_dark,staterr
+print "thresh: ",thresh
 
 #hz = ROOT.TH1D('hz','',200,-5000,5000)
 ht = ROOT.TH1D("htraw",'',10000,0,10000) # 10 usec with 1 ns bins
 ht2 = ht.Clone("htana")
-htave = ht.Clone("htave")
 hthresh = ht.Clone("hthresh")
 hexpect = ht.Clone("hexpect")
 hthresh.SetLineColor(ROOT.kGreen+4)
@@ -60,7 +62,7 @@ for iev in xrange(0,nevents):
     pulses = {}
     npulses = 0
     active_pulses = []
-    for ibin in xrange(window,ht.GetNbinsX()-tave):
+    for ibin in xrange(window,ht.GetNbinsX()):
 
         # sum up events in window
         hits_window = 0
@@ -75,15 +77,15 @@ for iev in xrange(0,nevents):
             nbinsum += 1
         ave_window /= float( nbinsum )
         ht2.SetBinContent( ibin, hits_window )
-        htave.SetBinContent( ibin, ave_window*window )
         #ht2.SetBinContent( ibin, ave_window )
+        ave_window = hits_window
 
         pe_expect = nexp_dark
 
         if len(active_pulses)==0:
             # looking for new pulse
-            if ave_window*window>thresh:
-            #if hits_window>(thresh):
+            #if ave_window*window>thresh:
+            if hits_window>(thresh):
                 # start new pulse
                 active_pulses.append( npulses )
                 pulses[ npulses ] = { "tstart":ibin, "nhits":hits_window, "end":False, "last_level":float(hits_window)/float(window), "nfalling":0 }
@@ -102,10 +104,10 @@ for iev in xrange(0,nevents):
                     onerising = True
                     pe_expect = hits_window
                 else:
-                    expecthits = pulses[pulse]["peak"]*exp( -0.6*( ibin-pulses[pulse]["tpeak"] )/45.5 - 0.4*( ibin-pulses[pulse]["tpeak"] )/120.0 )
-                    mod_thresh += (expecthits + 3.0*sqrt(expecthits))*window
+                    expecthits = pulses[pulse]["peak"]*exp( -1.0*( ibin-0.5*window-pulses[pulse]["tpeak"] )/45.5 - 0.0*( ibin-0.5*window-pulses[pulse]["tpeak"] )/120.0 )*window
+                    mod_thresh += (expecthits + 3.0*sqrt(expecthits))
                     onefall = True
-                    pe_expect += expecthits*window
+                    pe_expect += expecthits
             hthresh.SetBinContent( ibin, mod_thresh )
             # second pulse thresh
             #if hits_window/float(window)>mod_thresh:
@@ -130,9 +132,9 @@ for iev in xrange(0,nevents):
                         pulses[pulse]["last_level"] = ave_window                        
 
                     if pulses[pulse]["nfalling"]>3:
-                        print "Found peak: ",ibin-5
-                        pulses[pulse]["tpeak"] = ibin-5
-                        pulses[pulse]["peak"] = ave_window
+                        print "Found peak: ",ibin-window
+                        pulses[pulse]["tpeak"] = ibin-window
+                        pulses[pulse]["peak"] = ave_window/window
                 else:
                     if ibin >pulses[pulse]["tpeak"]+8*45.0:
                         print "End of pulse %d found: "%(pulse),ibin
@@ -164,7 +166,7 @@ for iev in xrange(0,nevents):
             s.Draw()
             pend.Draw()
             p.Draw()
-            f = ROOT.TF1("fit%d"%(pulse),"[0]*TMath::Exp( -(x-[1])/[2] )+%2f"%(nexp_dark/window), pulseinfo['tpeak'], pulseinfo['tpeak']+45*8 )
+            f = ROOT.TF1("fit%d"%(pulse),"[0]*TMath::Exp( -((x+%f)-[1])/[2] )+%2f"%(window, nexp_dark/window), pulseinfo['tpeak']-window, pulseinfo['tpeak']+45*8 )
             f.SetParameter(0, pulseinfo['peak'] )
             f.SetParameter(1, pulseinfo['tpeak'] )
             f.SetParameter(2, 45.0 )
@@ -181,9 +183,6 @@ for iev in xrange(0,nevents):
         f.Draw("Rsame")
     hexpect.SetLineColor(ROOT.kRed)
     hexpect.Draw("same")
-    htave.SetLineColor(ROOT.kCyan)
-    htave.Draw("same")
-    
 
     c.Update()
     if len(pulses)>0:
