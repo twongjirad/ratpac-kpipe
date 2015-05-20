@@ -7,6 +7,8 @@
 #include "RAT/DS/MC.hh"
 
 #include "kptrigger.h"
+#include "gen_dark_noise.hh"
+#include "prefitz.hh"
 
 int main( int nargs, char** argv ) {
 
@@ -40,12 +42,14 @@ int main( int nargs, char** argv ) {
   double rv, zv;  // from truth
   // trigger info
   int npulses = 0;
+  double prefit_z_cm = 0;
   std::vector<double> ttrig;
   std::vector<double> tpeak;
   std::vector<double> peakamp;
   std::vector<double> tend;
   std::vector<double> pulsepe;
   std::vector<double> pulsez;
+  std::vector<double> twfm;
 //   double ttrig[10];
 //   double tpeak[10];
 //   double peakamp[10];
@@ -71,21 +75,18 @@ int main( int nargs, char** argv ) {
   tree->Branch( "zv", &zv, "zv/D" );
   // trigger vars
   tree->Branch( "npulses", &npulses, "npulses/I" );
+  tree->Branch( "prefit_z_cm", &prefit_z_cm, "prefit_z_cm/D" );
   tree->Branch( "ttrig",  &ttrig );
   tree->Branch( "tpeak",  &tpeak );
   tree->Branch( "tend",  &tend );
   tree->Branch( "peakamp",  &peakamp );
   tree->Branch( "pulsepe",  &pulsepe );
   tree->Branch( "pulsez",  &pulsez );
-//   tree->Branch( "npulses", &npulses, "npulses/I" );
-//   tree->Branch( "ttrig",  ttrig, "ttrig[10]/D" );
-//   tree->Branch( "tpeak",  tpeak, "tpeak[10]/D" );
-//   tree->Branch( "tend",  tend, "tend[10]/D" );
-//   tree->Branch( "peakamp",  peakamp, "peakamp[10]/D" );
-//   tree->Branch( "pulsepe",  pulsepe, "pulsepe[10]/D" );
+  tree->Branch( "twfm", &twfm );
 
   int ievent = 0;
   int nevents = ds->GetTotal();
+  nevents = 30;
 
   KPPulseList pulselist;
 
@@ -107,18 +108,25 @@ int main( int nargs, char** argv ) {
     muendv[0] = muendv[1] = muendv[2] = 0.0;
     muendr = 0;
     npulses = 0;
+    prefit_z_cm = 0;
     ttrig.clear();
     tpeak.clear();
     tend.clear();
     peakamp.clear();
     pulsepe.clear();
     pulsez.clear();
+    twfm.clear();
     // --------------------------------
 
     if ( ievent%1000==0 )
       std::cout << "Event " << ievent << std::endl;
 
     RAT::DS::MC* mc = root->GetMC();
+
+    std::cout << "event " << ievent << ", npe=" << mc->GetNumPE() << " in " << mc->GetMCPMTCount() << std::endl;
+    gen_dark_noise( mc, pmtinfofile, 1.0e6, 10000 );
+    std::cout << "  finished dark noise gen, npe=" << mc->GetNumPE() << " in " << mc->GetMCPMTCount() << std::endl;
+
     if ( mc==NULL )
       break;
     npe = mc->GetNumPE();
@@ -183,10 +191,21 @@ int main( int nargs, char** argv ) {
     std::cout << "  ID PEs: " << idpe << " PMTs: " << idpmts << std::endl;
     std::cout << "  OD PEs: " << odpe << " PMTs: " << odpmts << std::endl;
 
+    int maxhoop = 0;
+    prefit_z_cm = calc_prefitz( mc, pmtinfofile, 1.0e6, 500.0, 90000, 2000, maxhoop );
+    std::cout << "  prefit z: " << prefit_z_cm << " maxhoop=" << maxhoop << std::endl;
+    int min_hoopid = maxhoop-50;
+    int max_hoopid = maxhoop+50;
+    if ( min_hoopid<0 )
+      min_hoopid = 0;
+    if ( max_hoopid>=900 )
+      max_hoopid = 900;
+
     // TRIGGER
-    npulses = find_trigger( mc, 5.0, 5.0, 10.0, 
+    npulses = find_trigger( mc, 500.0+50.0, 5.0, 10.0, 
+			    true, min_hoopid, max_hoopid,
 			    n_decay_constants, decay_weights, decay_constants_ns,
-			    pulselist, 90000, false );
+			    pulselist, 90000, false, twfm );
 
     assign_pulse_charge( mc, pmtinfofile, pulselist, 45.0, 90000, false );
     std::cout << "  posv: " << posv[0] << ", " << posv[1] << ", " << posv[2] << std::endl;

@@ -1,5 +1,6 @@
 #include "kptrigger.h"
 #include <iostream>
+#include <ctime>
 #include "pmtinfo.hh"
 
 KPPulse::KPPulse() {
@@ -14,17 +15,17 @@ KPPulse::KPPulse() {
 
 KPPulse::~KPPulse() {}; 
 
-
 int find_trigger( RAT::DS::MC* mc, 
 		  double threshold, double window_ns, double tave_ns, 
+		  bool hoop_cut, double min_hoop, double max_hoop, 
 		  int n_decay_constants, double decay_weights[], double decay_constants_ns[], 
-		  KPPulseList& pulses, int first_od_sipmid, bool veto ) {
+		  KPPulseList& pulses, int first_od_sipmid, bool veto, std::vector<double>& hitwfm ) {
 
   // (1) bin hits out to 20 microseconds.
   // (2) scan until a bin over threshold
   // (3) scan until max found: using averaging (-n,+n) bins
   // (4) adjust threshold level using maxamp*exp(-t/(t0))
-
+  hitwfm.clear();
   if ( mc->GetNumPE()==0 )
     return 0;
 
@@ -37,6 +38,8 @@ int find_trigger( RAT::DS::MC* mc,
   if ( windowbins==0 ) windowbins++;
   int tave_bins = (int)tave_ns/nspertic;
   if ( tave_bins==0 ) tave_bins++;
+  double darkrate_window = window_ns*(1.0e-3)*90000; // 1 MHz dark rate * Window  * NSiPMs
+  hitwfm.resize( nbins );
 
   // ------------------------------------------------
   // Fill time bins 
@@ -45,6 +48,9 @@ int find_trigger( RAT::DS::MC* mc,
     RAT::DS::MCPMT* pmt = mc->GetMCPMT( ipmt );
     int nhits = pmt->GetMCPhotonCount();
     int pmtid = pmt->GetID();
+    int hoopid = pmtid/100;
+    if ( hoop_cut && ( hoopid<min_hoop || hoopid>max_hoop ) )
+      continue;
 
     if ( veto && pmtid<first_od_sipmid ) 
       continue;
@@ -59,7 +65,6 @@ int find_trigger( RAT::DS::MC* mc,
 	tbins[ibin]++;
     }
   }//end of pmt loop
-
 
   // ------------------------------------------------
   // Find peaks by scanning
@@ -107,7 +112,7 @@ int find_trigger( RAT::DS::MC* mc,
       // we have active pulses. we look for a second peak with a trigger algorithm that accounts for scintillator decay time
 
       // find modified threshold
-      double modthresh = 0.0;
+      double modthresh = threshold;
       bool allfalling = true;
       for ( KPPulseListIter it=pulses.begin(); it!=pulses.end(); it++ ) {
 	if ( (*it)->fStatus==KPPulse::kRising ) {
@@ -136,7 +141,6 @@ int find_trigger( RAT::DS::MC* mc,
 	pulses.push_back( apulse );
         npulses++;
       }
-
 
       // now we find max of rising pulses and end of falling pulses
       for ( KPPulseListIter it=pulses.begin(); it!=pulses.end(); it++ ) {
@@ -172,7 +176,11 @@ int find_trigger( RAT::DS::MC* mc,
     }//end of active pulse condition
     
   }//end of scan over timing histogram
-  
+
+  // save hit histogram
+  for (int ibin=0; ibin<nbins; ibin++)
+    hitwfm.at(ibin) = tbins[ibin];
+
   return npulses;
 }
 
@@ -262,4 +270,5 @@ void assign_pulse_charge( RAT::DS::MC* mc, std::string pmtinfofile, KPPulseList&
     if ( apulse->hits_assigned>0 ) 
       apulse->z /= double(apulse->hits_assigned);
   }
+
 }

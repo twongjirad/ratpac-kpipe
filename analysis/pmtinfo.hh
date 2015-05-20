@@ -15,7 +15,7 @@ public:
 
 private:
   static PMTinfo* ginstance;
-  static const int __MAX_PMT__ = 901000;
+  static const int __MAX_PMT__ = 1000000;
   static float* fpmtposdata;
   std::string fpmtinfofile;
   TChain* pmtinfo_chain;

@@ -7,6 +7,7 @@
 #include "RAT/DS/MC.hh"
 
 #include "kptrigger.h"
+#include "gen_dark_noise.hh"
 
 int main( int nargs, char** argv ) {
 
@@ -103,6 +104,7 @@ int main( int nargs, char** argv ) {
   std::vector<double> tend;
   std::vector<double> pulsepe;
   std::vector<double> pulsez;
+  std::vector<double> twfm;
   // cosmic info
   int ncr_photons;
   int ncr_electrons;
@@ -114,6 +116,7 @@ int main( int nargs, char** argv ) {
   std::vector<double> ke_crelectrons;
   std::vector<double> ke_crneutrons;
   std::vector<double> ke_crother;
+  // dark rate
   
   // output tree
   TTree* tree = new TTree( "mcdata", "MC Data (Cosmic ray version)" );
@@ -141,6 +144,7 @@ int main( int nargs, char** argv ) {
   tree->Branch( "peakamp",  &peakamp );
   tree->Branch( "pulsepe",  &pulsepe );
   tree->Branch( "pulsez",  &pulsez );
+  tree->Branch( "twfm",  &twfm );
   // cosmic info
   tree->Branch( "ncr_photons",  &ncr_photons, "ncr_photons/I" );
   tree->Branch( "ncr_electrons",  &ncr_electrons, "ncr_electrons/I" );
@@ -224,10 +228,17 @@ int main( int nargs, char** argv ) {
       }
 
     }
+
+    // --------------------------------
+    // GET RAT MC OBJECT
+    RAT::DS::MC* mc = root->GetMC();
+
+    // --------------------------------
+    // GENERATE DARK NOISE
+    gen_dark_noise( mc, pmtinfofile, 1.0e6, 10000 );
     
     // --------------------------------
     // PROCESS RAT FILE
-    RAT::DS::MC* mc = root->GetMC();
     if ( mc==NULL )
       break;
     npe = mc->GetNumPE();
@@ -294,8 +305,9 @@ int main( int nargs, char** argv ) {
 
     // TRIGGER
     npulses = find_trigger( mc, 5.0, 5.0, 10.0, 
+			    false, 0, 0,
 			    n_decay_constants, decay_weights, decay_constants_ns,
-			    pulselist, 90000, false );
+			    pulselist, 90000, false, twfm );
 
     assign_pulse_charge( mc, pmtinfofile, pulselist, 45.0, 90000, false );
     std::cout << "  posv: " << posv[0] << ", " << posv[1] << ", " << posv[2] << std::endl;

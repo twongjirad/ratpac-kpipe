@@ -27,7 +27,13 @@ kptrigger.o: kptrigger.cc kptrigger.h
 pmtinfo.o: pmtinfo.cc pmtinfo.hh
 	$(CC) $(CFLAGS) -c -o $@ pmtinfo.cc
 
-libkptrigger.so: kptrigger.o pmtinfo.o
+gen_dark_noise.o: gen_dark_noise.cc gen_dark_noise.hh
+	$(CC) $(CFLAGS) -c -o $@ gen_dark_noise.cc
+
+prefitz.o: prefitz.cc prefitz.hh
+	$(CC) $(CFLAGS) -c -o $@ prefitz.cc
+
+libkptrigger.so: kptrigger.o pmtinfo.o gen_dark_noise.o prefitz.o
 	$(CC) $(LDFLAGS) -shared -o $@ $^ $(LDLIBS)
 	cp $@ ../lib/
 
