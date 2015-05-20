@@ -4,7 +4,7 @@ import json
 
 # tier 2 running utilities for KPipe rat-pac
 
-def generate_condor_submtfile( outfilename, inputfiles, outputfiles, script, arguments, njobs=1 ):
+def generate_condor_submtfile( jobid, outfilename, inputfiles, outputfiles, script, arguments, njobs=1 ):
     condorsub = StringIO.StringIO()
     print >> condorsub,"# Generated Tier 2 KPipe Condor submission file"
     print >> condorsub,"# --------------------------------------------"
@@ -14,8 +14,8 @@ def generate_condor_submtfile( outfilename, inputfiles, outputfiles, script, arg
     print >> condorsub,"Executable              = ",script
     print >> condorsub,"Arguments               = ",arguments
     print >> condorsub,"Input                   = /dev/null"
-    print >> condorsub,"Output                  = condor.out"
-    print >> condorsub,"Error                   = condor.err"
+    print >> condorsub,"Output                  = condor_out/condor_job%d.out" % ( jobid )
+    print >> condorsub,"Error                   = condor_err/condor_job%d.err" % ( jobid )
     print >> condorsub,"Log                     = condor.log"
     inputstr = ""
     iinput = 0
@@ -93,17 +93,21 @@ def launch_jobs( job_json, inputlists, outputlists, arglists, check_for_out=True
         
     script  = job_json["job"]["script"]
     os.system("mkdir -p condor_scripts")
+    os.system("mkdir -p condor_out")
+    os.system("mkdir -p condor_err")
     for jobid in joblist:
         condorfile = "condor_scripts/condor_submit_jobid%d.condor"%(jobid)
         script_wrapper = "condor_scripts/wrapper_job%d_%s"%(jobid, script)
         inputs = inputlists[ jobid ]
         outputs = outputlists[ jobid ]
         print inputs
-        generate_condor_submtfile( condorfile, inputs, outputs, job_json["job"]["script"], arglists[jobid] )
+        generate_condor_submtfile( jobid, condorfile, inputs, outputs, job_json["job"]["script"], arglists[jobid] )
         break
 
 if __name__ == "__main__":
     example = "example_job.json"
+    if len(sys.argv)==2:
+        example = sys.argv[1]
     job_json = parse_job_file( example )
     inputlists, outputlists, arglists = make_arg_lists( job_json )
     launch_jobs( job_json, inputlists, outputlists, arglists )
