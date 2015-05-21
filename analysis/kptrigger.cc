@@ -17,7 +17,8 @@ KPPulse::~KPPulse() {};
 
 int find_trigger( RAT::DS::MC* mc, 
 		  double threshold, double window_ns, double darkrate_hz,
-		  bool hoop_cut, double min_hoop, double max_hoop, 
+		  bool hoop_cut, double min_hoop, double max_hoop,
+		  bool time_cut, double min_time, double max_time,
 		  int n_decay_constants, double decay_weights[], double decay_constants_ns[], 
 		  KPPulseList& pulses, int first_od_sipmid, bool veto, std::vector<double>& hitwfm ) {
 
@@ -33,7 +34,8 @@ int find_trigger( RAT::DS::MC* mc,
   // INTERNAL PARAMETERS
   const int nbins = 10000;
   const double nspertic = 1.0;
-  const int NFALLING = 5;
+  const int NFALLING = 3;
+  bool use_ave = true;
   double tbins[nbins];
   memset( tbins, 0, sizeof(double)*nbins );
   int windowbins = (int)window_ns/nspertic;
@@ -51,18 +53,39 @@ int find_trigger( RAT::DS::MC* mc,
     RAT::DS::MCPMT* pmt = mc->GetMCPMT( ipmt );
     int nhits = pmt->GetMCPhotonCount();
     int pmtid = pmt->GetID();
-    int hoopid = pmtid/100;
-    if ( hoop_cut && ( hoopid<min_hoop || hoopid>max_hoop ) )
-      continue;
 
+    // VETO OR INNER
     if ( veto && pmtid<first_od_sipmid ) 
       continue;
     else if ( !veto && pmtid>=first_od_sipmid )
       continue;
 
+    int hoopid = pmtid/100;
+    if ( !veto ) {
+      // inner pipe hoop structure
+    }
+    else {
+      // veto has string structure, which in retrospect, was dumb, we're interested in z
+      // this uses info only in my head. correlates with build_geometry.py
+      if ( pmtid<first_od_sipmid+1000 )
+	hoopid = 900+pmtid%100; // 0-999 inclusive are radial
+      else {
+	if (pmtid<first_od_sipmid+1100)
+	  hoopid = 1000;     // endcap
+	else
+	  hoopid = 1001;     // endcap
+      }
+    }
+    //std::cout << " pmtid=" << pmtid << " hoopid=" << hoopid << std::endl;
+    if ( hoop_cut && ( hoopid<min_hoop || hoopid>max_hoop ) )
+      continue;
+
+
     for (int ihit=0; ihit<nhits; ihit++) {
       RAT::DS::MCPhoton* hit = pmt->GetMCPhoton( ihit );
       double thit = hit->GetHitTime();
+      if ( time_cut && (thit<min_time || thit>max_time) )
+	continue;
       int ibin = (int)thit/nspertic;
       if ( ibin>=0 && ibin<nbins )
 	tbins[ibin]++;
@@ -83,33 +106,25 @@ int find_trigger( RAT::DS::MC* mc,
 
     // calc triggering quantities
     int nhits_window = 0;
+    double ave_window = 0.;
     for (int i=ibin-windowbins; i<ibin; i++) {
       nhits_window += tbins[i];
     }
-
-    // deprecated
-//     double ave_window = 0;
-//     int nave = 0;
-//     int ave_start = ibin-tave_bins;
-//     int ave_end   = ibin+tave_bins;
-//     if ( ave_start<0 ) ave_start = 0;
-//     if ( ave_end>nbins ) ave_end = nbins;
-//     for (int i=ave_start; i<ave_end;  i++ ) {
-//       ave_window += tbins[i];
-//       nave++;
-//     }
-//     ave_window /= double(nave);
+    ave_window = double(nhits_window)/double(windowbins);
 
     // Check for new pulse
     if ( nactive==0 ) {
       // no active pulses. do search based on hits ver threshold of moving window
-      if ( nhits_window>(int)threshold ) {
+      if ( (!use_ave && nhits_window>(int)threshold ) || (use_ave && ave_window>threshold/windowbins) ) {
 	// make a new pulse!
 	KPPulse* apulse = new KPPulse;
 	apulse->tstart = (ibin-windowbins)*nspertic;
 	apulse->fStatus = KPPulse::kRising; // start of rising edge (until we find max)
+	apulse->last_max = ave_window;
 	pulses.push_back( apulse );
 	npulses++;
+// 	if ( veto )
+// 	  std::cout << " ibin=" << ibin << " hits_window=" << nhits_window << " ave_window=" << ave_window << " thresh=" << threshold << " (" << threshold/float(windowbins) << ")" << std::endl;
       }
     }
     else {
@@ -117,34 +132,45 @@ int find_trigger( RAT::DS::MC* mc,
 
       // find modified threshold
       double modthresh = threshold;
+      if ( use_ave )
+	modthresh = threshold/double(windowbins);
       bool allfalling = true;
       for ( KPPulseListIter it=pulses.begin(); it!=pulses.end(); it++ ) {
 	if ( (*it)->fStatus==KPPulse::kRising ) {
 	  // have a rising peak. will block creation of new pulse.
 	  allfalling = false;
-	  modthresh += 2.0*nhits_window;
+	  if ( !use_ave )
+	    modthresh += 2.0*nhits_window;
+	  else
+	    modthresh += 2.0*ave_window;
 	}
 	else {
 	  // for pulses considered falling, we modify the threshold to be 3 sigma (roughly) above
 	  //double expectation = ((*it)->peakamp)*exp( -( ibin*nspertic - (*it)->tpeak )/decay_constant ); // later can expand to multiple components
 	  double arg = 0.0;
 	  for (int idcy=0; idcy<n_decay_constants; idcy++) {
-	    arg += decay_weights[idcy]*( ibin*nspertic - (*it)->tpeak )/decay_constants_ns[idcy];
+	    arg += decay_weights[idcy]*( (ibin-windowbins)*nspertic - (*it)->tpeak )/decay_constants_ns[idcy];
 	  }
-	  double expectation = ((*it)->peakamp)*exp( -arg );
-	  //double expectation = ((*it)->peakamp)*exp( -( ibin*nspertic - (*it)->tpeak )/decay_constant ); // later can expand to multiple components
-	  modthresh += ( expectation + 3.0*sqrt(expectation) )*windowbins;
+	  // calc expectation for bin: note 'peakamp' is always ave of hits in window
+	  double expectation = 0;
+	  if ( !use_ave ) 
+	    expectation = ((*it)->peakamp)*windowbins*exp( -arg ); // window sum
+	  else
+	    expectation = ((*it)->peakamp)*exp( -arg );
+	  modthresh += ( expectation + 3.0*sqrt(expectation) );
 	}
       }//end of loop over pulses
 
-      //std::cout << " ibin=" << ibin << " hits_window=" << nhits_window << " modthresh=" << modthresh << std::endl;
+//       if ( veto )
+// 	std::cout << " ibin=" << ibin << " hits_window=" << nhits_window << " ave_window=" << ave_window << " modthresh=" << modthresh << std::endl;
 
       // apply threshold
-      if ( allfalling && nhits_window>modthresh ) {
+      if ( allfalling && ( (!use_ave && nhits_window>modthresh) || (use_ave && ave_window>modthresh) ) ) {
 	// new pulse! (on top of other pulse)
 	KPPulse* apulse = new KPPulse;
-        apulse->tstart = ibin*nspertic;
+        apulse->tstart = (ibin-windowbins)*nspertic;
         apulse->fStatus = KPPulse::kRising; // start of rising edge (until we find max) 
+	apulse->last_max = ave_window;
 	pulses.push_back( apulse );
         npulses++;
 	//std::cout << "  new pulse!" << std::endl;
@@ -157,26 +183,27 @@ int find_trigger( RAT::DS::MC* mc,
 	  continue;
 
 	if ( apulse->fStatus==KPPulse::kRising ) {
-	  if ( (nhits_window/double(windowbins)) < apulse->last_max )
+	  if ( ave_window < apulse->last_max )
 	    apulse->nfallingbins += 1;
 	  else {
 	    apulse->nfallingbins = 0;
-	    apulse->last_max = nhits_window/double(windowbins);
+	    if ( ave_window>apulse->last_max )
+	      apulse->last_max = ave_window;
 	  }
 
 	  if ( apulse->nfallingbins>NFALLING ) {
 	    // found our max
 	    apulse->fStatus = KPPulse::kFalling;
-	    apulse->tpeak = ibin*nspertic - apulse->nfallingbins;
-	    apulse->peakamp = apulse->last_max;
+	    apulse->tpeak = (ibin-windowbins-apulse->nfallingbins)*nspertic;
+	    apulse->peakamp = apulse->last_max; // note, always uses averages
 	  }
 	}//end of if rising
 	else if ( apulse->fStatus==KPPulse::kFalling ) {
 	  double decay_constant = 0.0;
 	  for (int idcy=0; idcy<n_decay_constants; idcy++)
 	    decay_constant += decay_weights[idcy]*decay_constants_ns[idcy];
-	  if ( ibin*nspertic > apulse->tpeak + 8*decay_constant ) {
-	    apulse->tend = ibin*nspertic;
+	  if ( ibin*nspertic > apulse->tpeak + 4*decay_constant ) {
+	    apulse->tend = (ibin-windowbins)*nspertic;
 	    apulse->fStatus=KPPulse::kDefined;
 	  }
 	}
@@ -184,6 +211,19 @@ int find_trigger( RAT::DS::MC* mc,
     }//end of active pulse condition
     
   }//end of scan over timing histogram
+
+  // save unclosed pulses
+  for ( KPPulseListIter it=pulses.begin(); it!=pulses.end(); it++ ) {
+    KPPulse* apulse = *it;
+    if ( apulse->fStatus!=KPPulse::kDefined ) {
+      if ( apulse->fStatus==KPPulse::kRising ){
+	apulse->peakamp = apulse->last_max;
+	apulse->tpeak = ( nbins-windowbins-1 )*nspertic;
+	apulse->tend  = ( nbins-windowbins )*nspertic;
+      }
+      apulse->fStatus = KPPulse::kDefined;
+    }
+  }
 
   // save hit histogram
   for (int ibin=0; ibin<nbins; ibin++)
@@ -202,9 +242,22 @@ void assign_pulse_charge( RAT::DS::MC* mc, std::string pmtinfofile, KPPulseList&
     return;
 
   double nsipms = (double)first_od_sipmid;
-  if ( hoop_cut )
-    nsipms = (double)(max_hoop-min_hoop)*100.0; // 1 MHz dark rate * Window  * NSiPMs
-
+  if ( hoop_cut ) {
+    // inner pipe
+    if ( !veto )
+      nsipms = (double)(max_hoop-min_hoop)*100.0; // 1 MHz dark rate * Window  * NSiPMs
+    // outer pipe
+    if ( veto ) {
+      nsipms = 0;
+      for (int ihoop=min_hoop; ihoop<=max_hoop; ihoop++) {
+	if ( min_hoop<1000 )
+	  nsipms += 10;  // sides
+	else
+	  nsipms += 100; // end caps
+      }
+    }
+  }
+  
   PMTinfo* pmtinfo = PMTinfo::GetPMTinfo( pmtinfofile );
 
   const int npulses = pulselist.size();
@@ -215,29 +268,58 @@ void assign_pulse_charge( RAT::DS::MC* mc, std::string pmtinfofile, KPPulseList&
   for ( int ipulse=0; ipulse<npulses; ipulse++ ) {
     KPPulse* apulse = pulselist.at(ipulse);
     apulse->pe = 0.0;
+    apulse->pe_dark = 0.0;
+    apulse->pe_adjusted = 0.0;
     apulse->z  = 0.0;
     apulse->hits_assigned = 0;
   }
   
   // Fill time bins
   int npmts = mc->GetMCPMTCount();
+  int ntothits = 0;
+  int ncuthits = 0;
 
   for ( int ipmt=0; ipmt<npmts; ipmt++ ) {
     RAT::DS::MCPMT* pmt = mc->GetMCPMT( ipmt );
     int nhits = pmt->GetMCPhotonCount();
     int pmtid = pmt->GetID();
+
+    // VETO OR INNER
+    if ( veto && pmtid<first_od_sipmid )  {
+      continue;
+    }
+    else if ( !veto && pmtid>=first_od_sipmid ) {
+      continue;
+    }
+
     int hoopid = pmtid/100;
-    if ( hoop_cut && ( hoopid<min_hoop || hoopid>max_hoop ) )
-      continue;    
-    if ( veto && pmtid<first_od_sipmid )
+    if ( !veto ) {
+      // inner pipe hoop structure
+    }
+    else {
+      // veto has string structure, which in retrospect, was dumb, we're interested in z
+      // this uses info only in my head. correlates with build_geometry.py
+      if ( pmtid<first_od_sipmid+1000 )
+	hoopid = 900+pmtid%100; // 0-999 inclusive are radial
+      else {
+	if (pmtid<first_od_sipmid+1100)
+	  hoopid = 1000;     // endcap
+	else
+	  hoopid = 1001;     // endcap
+      }
+    }
+    //std::cout << " assign pmtid=" << pmtid << " hoopid=" << hoopid << std::endl;
+    if ( hoop_cut && ( hoopid<min_hoop || hoopid>max_hoop ) ) {
+      ncuthits+=nhits;
       continue;
-    else if ( !veto && pmtid>=first_od_sipmid )
-      continue;
+    }
+    //std::cout << " assign pmtid=" << pmtid << " hoopid=" << hoopid << std::endl;
 
     float pmtpos[3];
     pmtinfo->getposition( pmtid, pmtpos );
 
     for (int ihit=0; ihit<nhits; ihit++) {
+
       RAT::DS::MCPhoton* hit = pmt->GetMCPhoton( ihit );
       double thit = hit->GetHitTime();
 
@@ -275,14 +357,24 @@ void assign_pulse_charge( RAT::DS::MC* mc, std::string pmtinfofile, KPPulseList&
 	  if (  heights[ipulse]>0.0 ) {
 	    apulse->hits_assigned++;
 	    apulse->z += (double)pmtpos[2];
-// 	    if ( ipulse==0 ) {
-// 	      std::cout << " pulse 1: pmtid=" << pmtid << "  pe=" << heights[ipulse] << ", z=" << pmtpos[2] << std::endl;
-// 	    }
+//   	    if ( ipulse==0 )
+// 	      std::cout << " pulse 1: pmtid=" << pmtid 
+// 			<< "  height[ipulse]=" 
+// 			<< heights[ipulse] 
+// 			<< ", z=" << pmtpos[2] 
+// 			<< " frac of pulse: " << heights[ipulse]/height_tot 
+// 			<< " total: " << apulse->pe
+// 			<< std::endl;
 	  }
-	}
+	} // loop over pulses
+      }//end of if height>0
+      else {
+	ncuthits++;
       }
-    }
+      ntothits++;
+    }//end of loop over hits
   }//end of pmt loop
+  //std::cout << "  total hits=" << ntothits << " ncut hits=" << ncuthits << std::endl;
 
   // take care of averages and subtract dark noise
   for ( int ipulse=0; ipulse<npulses; ipulse++ ) {

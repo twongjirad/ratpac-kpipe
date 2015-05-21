@@ -57,6 +57,7 @@ int main( int nargs, char** argv ) {
   int npulses = 0;
   int npulses_veto = 0;
   double prefit_z_cm = 0;
+  double pulse_totodpe = 0.0;
   std::vector<double> ttrig;
   std::vector<double> tpeak;
   std::vector<double> peakamp;
@@ -88,6 +89,7 @@ int main( int nargs, char** argv ) {
   // trigger vars
   tree->Branch( "npulses", &npulses, "npulses/I" );
   tree->Branch( "prefit_z_cm", &prefit_z_cm, "prefit_z_cm/D" );
+  tree->Branch( "pulse_totodpe", &pulse_totodpe, "pulse_totodpe/D" );
   tree->Branch( "ttrig",  &ttrig );
   tree->Branch( "tpeak",  &tpeak );
   tree->Branch( "tend",  &tend );
@@ -96,8 +98,8 @@ int main( int nargs, char** argv ) {
   tree->Branch( "pulsepedark",  &pulsepedark );
   tree->Branch( "pulseperaw",  &pulseperaw );
   tree->Branch( "pulsez",  &pulsez );
-  tree->Branch( "twfm", &twfm );
-  tree->Branch( "twfm_veto", &twfm_veto );
+//   tree->Branch( "twfm", &twfm );
+//   tree->Branch( "twfm_veto", &twfm_veto );
 
   int ievent = 0;
   int nevents = ds->GetTotal();
@@ -125,6 +127,7 @@ int main( int nargs, char** argv ) {
     muendr = 0;
     npulses = 0;
     prefit_z_cm = 0;
+    pulse_totodpe = 0;
     ttrig.clear();
     tpeak.clear();
     tend.clear();
@@ -341,6 +344,7 @@ int main( int nargs, char** argv ) {
 		    << " pe=" << pulselist_veto.at(iod)->pe_adjusted
 		    << " t=(" << pulselist_veto.at(iod)->tstart << ", " << pulselist_veto.at(0)->tpeak << ", " << pulselist_veto.at(0)->tend << ")"
 		    << std::endl;
+	  pulse_totodpe += pulselist_veto.at(iod)->pe_adjusted;
 	}
       }
       if ( ihoop==910 )

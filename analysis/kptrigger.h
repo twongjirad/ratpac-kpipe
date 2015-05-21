@@ -40,6 +40,7 @@ typedef std::vector< KPPulse* >::iterator KPPulseListIter;
 int find_trigger( RAT::DS::MC* mc, 
 		  double threshold, double window_ns, double darkrate_hz,
 		  bool hoop_cut, double min_hoop, double max_hoop,
+		  bool time_cut, double min_time, double max_time,
 		  int n_decay_constants, double decay_weights[], double decay_constants_ns[],
 		  KPPulseList& pulses, int first_od_sipmid, bool veto, std::vector<double>& wfm );
 void assign_pulse_charge( RAT::DS::MC* mc, std::string pmtinfo, KPPulseList& pulselist, 
