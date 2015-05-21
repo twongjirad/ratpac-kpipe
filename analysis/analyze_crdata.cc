@@ -98,6 +98,7 @@ int main( int nargs, char** argv ) {
   double rv, zv;  // from truth
   // trigger info
   int npulses = 0;
+  int npulses_veto = 0;
   std::vector<double> ttrig;
   std::vector<double> tpeak;
   std::vector<double> peakamp;
@@ -105,6 +106,7 @@ int main( int nargs, char** argv ) {
   std::vector<double> pulsepe;
   std::vector<double> pulsez;
   std::vector<double> twfm;
+  std::vector<double> twfm_veto;
   // cosmic info
   int ncr_photons;
   int ncr_electrons;
@@ -305,6 +307,7 @@ int main( int nargs, char** argv ) {
 
     // TRIGGER
     npulses = find_trigger( mc, 5.0, 5.0, 10.0, 
+			    false, 0, 0,
 			    false, 0, 0,
 			    n_decay_constants, decay_weights, decay_constants_ns,
 			    pulselist, 90000, false, twfm );
