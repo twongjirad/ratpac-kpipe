@@ -66,6 +66,10 @@ int main( int nargs, char** argv ) {
   std::vector<double> pulsepedark;
   std::vector<double> pulseperaw;
   std::vector<double> pulsez;
+  std::vector<double> pulsez_veto;
+  std::vector<double> pulsepe_veto;
+  std::vector<double> ttrig_veto;
+  std::vector<double> tend_veto;
   std::vector<double> twfm;
   std::vector<double> twfm_veto;
   
@@ -88,8 +92,9 @@ int main( int nargs, char** argv ) {
   tree->Branch( "zv", &zv, "zv/D" );
   // trigger vars
   tree->Branch( "npulses", &npulses, "npulses/I" );
-  tree->Branch( "prefit_z_cm", &prefit_z_cm, "prefit_z_cm/D" );
+  tree->Branch( "npulses_veto", &npulses_veto, "npulses_veto/I" );
   tree->Branch( "pulse_totodpe", &pulse_totodpe, "pulse_totodpe/D" );
+  tree->Branch( "prefit_z_cm", &prefit_z_cm, "prefit_z_cm/D" );
   tree->Branch( "ttrig",  &ttrig );
   tree->Branch( "tpeak",  &tpeak );
   tree->Branch( "tend",  &tend );
@@ -98,6 +103,10 @@ int main( int nargs, char** argv ) {
   tree->Branch( "pulsepedark",  &pulsepedark );
   tree->Branch( "pulseperaw",  &pulseperaw );
   tree->Branch( "pulsez",  &pulsez );
+  tree->Branch( "pulsepe_veto",  &pulsepe_veto );
+  tree->Branch( "pulsez_veto",  &pulsez_veto );
+  tree->Branch( "ttrig_veto",  &ttrig_veto );
+  tree->Branch( "tend_veto",  &tend_veto );
 //   tree->Branch( "twfm", &twfm );
 //   tree->Branch( "twfm_veto", &twfm_veto );
 
@@ -125,7 +134,7 @@ int main( int nargs, char** argv ) {
     mudirv[0] = mudirv[1] = mudirv[2] = 0.0;
     muendv[0] = muendv[1] = muendv[2] = 0.0;
     muendr = 0;
-    npulses = 0;
+    npulses = npulses_veto = 0;
     prefit_z_cm = 0;
     pulse_totodpe = 0;
     ttrig.clear();
@@ -137,6 +146,11 @@ int main( int nargs, char** argv ) {
     pulseperaw.clear();
     pulsez.clear();
     twfm.clear();
+    twfm_veto.clear();
+    pulsepe_veto.clear();
+    pulsez_veto.clear();
+    ttrig_veto.clear();
+    tend_veto.clear();
     // --------------------------------
 
     if ( ievent%1000==0 )
@@ -343,8 +357,13 @@ int main( int nargs, char** argv ) {
 	  std::cout << "     odpulse " << iod << ": "
 		    << " pe=" << pulselist_veto.at(iod)->pe_adjusted
 		    << " t=(" << pulselist_veto.at(iod)->tstart << ", " << pulselist_veto.at(0)->tpeak << ", " << pulselist_veto.at(0)->tend << ")"
+		    << " z=" << pulselist_veto.at(iod)->z
 		    << std::endl;
 	  pulse_totodpe += pulselist_veto.at(iod)->pe_adjusted;
+	  pulsepe_veto.push_back( pulselist_veto.at(iod)->pe_adjusted );
+	  pulsez_veto.push_back(  pulselist_veto.at(iod)->z );
+	  ttrig_veto.push_back(  pulselist_veto.at(iod)->tstart );
+	  tend_veto.push_back(  pulselist_veto.at(iod)->tend );
 	}
       }
       if ( ihoop==910 )
