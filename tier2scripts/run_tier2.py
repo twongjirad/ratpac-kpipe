@@ -11,6 +11,7 @@ def generate_condor_submtfile( jobid, outfilename, inputfiles, outputfiles, scri
     print >> condorsub,"Universe                = vanilla"
     print >> condorsub,"Environment             =\"HOSTNAME=$HOSTNAME\""
     print >> condorsub,"Requirements            = UidDomain == \"cmsaf.mit.edu\" && Arch == \"X86_64\" && HasFileTransfer"
+    print >> condorsub,"AccountingGroup = \"group_mitlns.taritree\""
     print >> condorsub,"Executable              = ",script
     print >> condorsub,"Arguments               = ",arguments
     print >> condorsub,"Input                   = /dev/null"
@@ -104,7 +105,6 @@ def launch_jobs( job_json, inputlists, outputlists, arglists, check_for_out=True
         generate_condor_submtfile( jobid, condorfile, inputs, outputs, job_json["job"]["script"], arglists[jobid] )
         command = "condor_submit %s"%(condorfile)
         os.system( command )
-        break
 
 if __name__ == "__main__":
     example = "example_job.json"
