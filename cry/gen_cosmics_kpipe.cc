@@ -264,6 +264,8 @@ int main( int argc, const char *argv[]) {
   // SETUP OUTPUT
   std::string outputFile = argv[2];
   TFile* outfile = new TFile( outputFile.c_str(), "recreate" );
+  std::cout << "making " << outputFile << std::endl;
+
   TTree* crytree = new TTree("crytree", "CRY EVENTS" );
   int nparticles;
   std::vector< int > status;

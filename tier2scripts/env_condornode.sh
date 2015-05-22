@@ -13,7 +13,12 @@ export LD_LIBRARY_PATH=${SOFTWAREHOME}/d-Chooz/Software/lib:${LD_LIBRARY_PATH}
 export PATH=${SOFTWAREHOME}/d-Chooz/Software/git-1.8.5.6:${PATH}
 
 # SETUP PYTHON
-export LD_LIBRARY_PATH=${SOFTWAREHOME}/d-Chooz/Software/PYTHON/python:${LD_LIBRARY_PATH}
+export PYTHONHOME=${SOFTWAREHOME}/d-Chooz/Software/PYTHON/python2.6.9
+export PATH=${SOFTWAREHOME}/d-Chooz/Software/PYTHON/python2.6.9/bin:${PATH}
+export LD_LIBRARY_PATH=${SOFTWAREHOME}/d-Chooz/Software/PYTHON/python2.6.9/lib:${LD_LIBRARY_PATH}
+#export PYTHONHOME=${SOFTWAREHOME}/d-Chooz/Software/PYTHON/python
+#export PYTHONPATH=${PYTHONPATH}:${SOFTWAREHOME}/d-Chooz/Software/PYTHON/python
+#export LD_LIBRARY_PATH=${SOFTWAREHOME}/d-Chooz/Software/PYTHON/python:${LD_LIBRARY_PATH}
 
 # SETUP ROOT 
 source ${SOFTWAREHOME}/d-Chooz/Software/root/root_v5.34.28/bin/thisroot.sh

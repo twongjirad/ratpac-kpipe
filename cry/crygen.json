@@ -1,0 +1,10 @@
+{ "job": {
+      	"script":"/net/hisrv0001/home/taritree/kpipe/production/ratpac-kpipe/cry/run_crygen.sh",
+	"startjob":"2000",
+	"njobs":"1",
+	"nargs":"2",
+	"packagefiles":["/net/hisrv0001/home/taritree/kpipe/production/rat.tar.gz"],
+	"args":[ {"argname":"cry-file","value":"cry_events_%05d.root","njobids":"1","transfer":"True","type":"output"},
+		 {"argname":"file-jobid","value":"%d","njobids":"1","transfer":"False","type":"arg"} ]
+	}
+}

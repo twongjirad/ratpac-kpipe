@@ -1,38 +1,22 @@
 
 # GET JOBID FROM ARGUMENTS
-JOBID=$(expr $1 + $2)
+JOBID=$1
+CRY_INPUT=$2
+KPIPE_CRY_OUT=$3
 
-SEED=$RANDOM$RANDOM
+# SETUP LOCAL PYTHON
+tar zxvf python2.6.9.tar >> /dev/null
 
-if test -z "${_CONDOR_SCRATCH_DIR}"; then
-export _CONDOR_SCRATCH_DIR=/tmp/$USERNAME/mytmpdir/
-fi
-mkdir -p ${_CONDOR_SCRATCH_DIR}
-
-
-cd ${_CONDOR_SCRATCH_DIR}
-#echo $PWD>>/net/hisrv0001/home/spitzj/outlog
-
-# SETUP ENVIONMENT
-source /net/t2srv0008/app/d-Chooz/Software/kpipe/ratpac-kpipe/env.sh
-
-#mkdir -p out
-
-# input file
-INPUTFILE=/net/nudsk0001/d00/scratch/taritree/cry_gen/cry_events_"$JOBID".root
-
-# COPY FILES
-cp /net/t2srv0008/app/d-Chooz/Software/kpipe/ratpac-kpipe/bin/rat ./
-cp ${INPUTFILE} ./
+# SETUP RAT
+tar zxvf rat.tar.gz >> /dev/null
+#source ratpac-kpipe/tier2scripts/env_condornode.sh
+source ratpac-kpipe/tier2scripts/env_condornode_localpython.sh
 
 # GEN MACRO
-python /net/t2srv0008/app/d-Chooz/Software/kpipe/ratpac-kpipe/cry/gen_macro.py cry_events_"$JOBID".root cry_job"$JOBID".mac $JOBID 5000
+CRYMAC=cry_job"$JOBID".mac
+python ratpac-kpipe/cry/gen_macro.py $CRY_INPUT $CRYMAC $JOBID 1000
+cat $CRYMAC
 
 # RUN JOB
-./rat cry_job"$JOBID".mac -o output_kpipe_cryevents_"$JOBID".root 2>> /net/hisrv0001/home/taritree/outlog
+rat $CRYMAC -o $KPIPE_CRY_OUT
 
-# COPY OUTPUT
-scp ${_CONDOR_SCRATCH_DIR}/output_kpipe_cryevents_* nudsk0001:/net/nudsk0001/d00/scratch/taritree/cosmic_events 2>> /net/hisrv0001/home/taritree/outlog
-rm -rf ${_CONDOR_SCRATCH_DIR}
-
-rm ${_CONDOR_SCRATCH_DIR}/*

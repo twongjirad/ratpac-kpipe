@@ -18,7 +18,7 @@ def gen_macro( outfile, infile, jobid, nevents_per_job ):
 #END EVENT LOOP
 """
     offset = jobid*nevents_per_job
-    gen_str = "/generator/add external external:uniform:\"/net/t2srv0008/app/d-Chooz/Software/kpipe/ratpac-kpipe/cry/./cosmic_interface %s %d |\"" % (infile, nevents_per_job)
+    gen_str = "/generator/add external external:uniform:\"ratpac-kpipe/cry/./cosmic_interface %s %d |\"" % (infile, nevents_per_job)
 
     run_str = "/run/beamOn %d"%(nevents_per_job)
     fout = open( outfile, 'w' )
