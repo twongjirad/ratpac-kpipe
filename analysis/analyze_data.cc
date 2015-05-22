@@ -256,7 +256,7 @@ int main( int nargs, char** argv ) {
     tend_veto.clear();
     // cry/cosmics
     if ( cry_mode ) {
-      ncr_photons = ncr_electrons = ncr_muons = ncr_neutrons;
+      ncr_photons = ncr_electrons = ncr_muons = ncr_neutrons = 0;
       ke_crmuons.clear();
       ke_crphotons.clear();
       ke_crelectrons.clear();

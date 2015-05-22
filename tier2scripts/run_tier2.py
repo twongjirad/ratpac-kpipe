@@ -3,7 +3,11 @@ import os,sys
 import StringIO
 import json
 import time
-import argparse
+try:
+    import argparse
+except:
+    sys.path.append( "/net/hisrv0001/home/taritree/software/argparse-1.3.0" )
+    import argparse
 
 # argument parser
 parser = argparse.ArgumentParser(description='Manage Tier 2 Submissions')
