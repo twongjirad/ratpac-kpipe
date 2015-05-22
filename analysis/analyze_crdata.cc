@@ -202,6 +202,7 @@ int main( int nargs, char** argv ) {
 
     // --------------------------------
     // PROCESS CRY FILE
+
     for (int icr=0; icr<nparticles; icr++) {
       if ( hitx_mm->at(icr)==0 && hity_mm->at(icr)==0 && hitz_mm->at(icr)==0 )
 	continue;
