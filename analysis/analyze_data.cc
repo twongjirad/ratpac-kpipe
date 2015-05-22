@@ -13,8 +13,10 @@
 
 int main( int nargs, char** argv ) {
 
-  if ( nargs<4 ) {
-    std::cout << "usage: scrape_data <input RAT root file> <output rootfile> <pmt info file>" << std::endl;
+  // --------------------------------
+  // ARGUMENTS
+  if ( nargs!=4 and nargs!=6) {
+    std::cout << "usage: scrape_data <input RAT root file> <output rootfile> <pmt info file> [optional: <crymode=1> <cry file>]" << std::endl;
     return 0;
   }
 
@@ -24,6 +26,15 @@ int main( int nargs, char** argv ) {
   pmtinfofile = argv[3];
   std::cout << "pmt info file: " << pmtinfofile << std::endl;
   PMTinfo* pmtinfo = PMTinfo::GetPMTinfo( pmtinfofile );
+  bool cry_mode  = false;
+  std::string cryfile = "tears.root";
+  if (nargs==6) {
+    cry_mode = true;
+    cryfile = argv[5];
+  }
+    
+  // --------------------------------
+  // CONSTANTS/PARAMETERS
 
   RAT::DSReader* ds = new RAT::DSReader( inputfile.c_str() ); 
   int first_od_sipmid = 90000;
@@ -41,11 +52,68 @@ int main( int nargs, char** argv ) {
 //   double sipm_darkrate_hz = 0.0;
 //   double threshold = 10.0;
 
+
+  // --------------------------------
+  // INPUT CRY VARS
+
+  TChain* crytree = new TChain("crytree");
+  crytree->Add( cryfile.c_str() );
+
+  int nparticles;
+  std::vector< int >* status = 0;
+  std::vector< int >* pdg = 0;
+  std::vector< double >* momx_gev = 0;
+  std::vector< double >* momy_gev = 0;
+  std::vector< double >* momz_gev = 0;
+  std::vector< double >* mass_gev = 0;
+  std::vector< double >* posx_mm = 0;
+  std::vector< double >* posy_mm = 0;
+  std::vector< double >* posz_mm = 0;
+  std::vector< double >* hitx_mm = 0;
+  std::vector< double >* hity_mm = 0;
+  std::vector< double >* hitz_mm = 0;
+  std::vector< double >* telapsed_sec = 0;
+  std::vector< double >* delta_time_ns = 0;
+
+  TBranch* b_status = 0;
+  TBranch* b_pdg = 0;
+  TBranch* b_momx_gev = 0;
+  TBranch* b_momy_gev = 0;
+  TBranch* b_momz_gev = 0;
+  TBranch* b_mass_gev = 0;
+  TBranch* b_posx_mm = 0;
+  TBranch* b_posy_mm = 0;
+  TBranch* b_posz_mm = 0;
+  TBranch* b_hitx_mm = 0;
+  TBranch* b_hity_mm = 0;
+  TBranch* b_hitz_mm = 0;
+  TBranch* b_telapsed_sec = 0;
+  TBranch* b_delta_time_ns = 0;
+
+  crytree->SetBranchAddress( "nparticles", &nparticles );
+  crytree->SetBranchAddress( "pdg", &pdg, &b_pdg );
+  crytree->SetBranchAddress( "momx_gev", &momx_gev, &b_momx_gev );
+  crytree->SetBranchAddress( "momy_gev", &momy_gev, &b_momy_gev );
+  crytree->SetBranchAddress( "momz_gev", &momz_gev, &b_momz_gev );
+  crytree->SetBranchAddress( "mass_gev", &mass_gev, &b_mass_gev );
+  crytree->SetBranchAddress( "posx_mm", &posx_mm, &b_posx_mm );
+  crytree->SetBranchAddress( "posy_mm", &posy_mm, &b_posy_mm );
+  crytree->SetBranchAddress( "posz_mm", &posz_mm, &b_posz_mm );
+  crytree->SetBranchAddress( "hitx_mm", &hitx_mm, &b_hitx_mm );
+  crytree->SetBranchAddress( "hity_mm", &hity_mm, &b_hity_mm );
+  crytree->SetBranchAddress( "hitz_mm", &hitz_mm, &b_hitz_mm );
+  crytree->SetBranchAddress( "telapsed_sec", &telapsed_sec, &b_telapsed_sec );
+  crytree->SetBranchAddress( "delta_time_ns", &delta_time_ns, &b_delta_time_ns );
+
+  // -----------------------------------------------------------------------------------------
+  // DEFINE OUTPUT
+
   TFile* out = new TFile(outfile.c_str(), "RECREATE" );
   // variables we want
   int npe, idpe, odpe;
   int npmts, idpmts, odpmts;
   int nhoops;
+  // truth
   double posv[3]; // true vertex
   double mudirv[3]; // true direction
   double muendr;
@@ -58,6 +126,7 @@ int main( int nargs, char** argv ) {
   int npulses_veto = 0;
   double prefit_z_cm = 0;
   double pulse_totodpe = 0.0;
+  // inner pipe vars
   std::vector<double> ttrig;
   std::vector<double> tpeak;
   std::vector<double> peakamp;
@@ -66,13 +135,26 @@ int main( int nargs, char** argv ) {
   std::vector<double> pulsepedark;
   std::vector<double> pulseperaw;
   std::vector<double> pulsez;
+  // outer pipe vars
   std::vector<double> pulsez_veto;
   std::vector<double> pulsepe_veto;
   std::vector<double> ttrig_veto;
   std::vector<double> tend_veto;
   std::vector<double> twfm;
   std::vector<double> twfm_veto;
-  
+  // cry cosmic info
+  int ncr_photons;
+  int ncr_electrons;
+  int ncr_muons;
+  int ncr_neutrons;
+  int ncr_other;
+  std::vector<double> ke_crmuons;
+  std::vector<double> ke_crphotons;
+  std::vector<double> ke_crelectrons;
+  std::vector<double> ke_crneutrons;
+  std::vector<double> ke_crother;
+
+
   TTree* tree = new TTree( "mcdata", "MC Data" );
   // recon
   tree->Branch( "npe", &npe, "npe/I" );
@@ -95,6 +177,7 @@ int main( int nargs, char** argv ) {
   tree->Branch( "npulses_veto", &npulses_veto, "npulses_veto/I" );
   tree->Branch( "pulse_totodpe", &pulse_totodpe, "pulse_totodpe/D" );
   tree->Branch( "prefit_z_cm", &prefit_z_cm, "prefit_z_cm/D" );
+  // inner pipe pusles
   tree->Branch( "ttrig",  &ttrig );
   tree->Branch( "tpeak",  &tpeak );
   tree->Branch( "tend",  &tend );
@@ -103,12 +186,27 @@ int main( int nargs, char** argv ) {
   tree->Branch( "pulsepedark",  &pulsepedark );
   tree->Branch( "pulseperaw",  &pulseperaw );
   tree->Branch( "pulsez",  &pulsez );
+  // outer pipe pusles
   tree->Branch( "pulsepe_veto",  &pulsepe_veto );
   tree->Branch( "pulsez_veto",  &pulsez_veto );
   tree->Branch( "ttrig_veto",  &ttrig_veto );
   tree->Branch( "tend_veto",  &tend_veto );
 //   tree->Branch( "twfm", &twfm );
 //   tree->Branch( "twfm_veto", &twfm_veto );
+  // cosmic truth
+  if ( cry_mode ) {
+    tree->Branch( "ncr_photons",  &ncr_photons, "ncr_photons/I" );
+    tree->Branch( "ncr_electrons",  &ncr_electrons, "ncr_electrons/I" );
+    tree->Branch( "ncr_muons",  &ncr_muons, "ncr_muons/I" );
+    tree->Branch( "ncr_neutrons",  &ncr_neutrons, "ncr_neutrons/I" );
+    tree->Branch( "ncr_other",  &ncr_other, "ncr_other/I" );
+    tree->Branch( "ke_crphotons",  &ke_crphotons );
+    tree->Branch( "ke_crelectrons",  &ke_crelectrons );
+    tree->Branch( "ke_crmuons",  &ke_crmuons );
+    tree->Branch( "ke_crneutrons",  &ke_crneutrons );
+    tree->Branch( "ke_crother",  &ke_crother );
+  }
+
 
   int ievent = 0;
   int nevents = ds->GetTotal();
@@ -124,8 +222,11 @@ int main( int nargs, char** argv ) {
 
     // --------------------------------
     // Clear Variables
+
+    //summary vars
     npe = idpe = odpe = 0;
     npmts = idpmts = odpmts = 0;
+    // truth
     for (int i=0; i<3; i++)
       posv[i] = 0.0;
     rv = zv = 0.0;
@@ -137,6 +238,7 @@ int main( int nargs, char** argv ) {
     npulses = npulses_veto = 0;
     prefit_z_cm = 0;
     pulse_totodpe = 0;
+    // inner pipe pulses
     ttrig.clear();
     tpeak.clear();
     tend.clear();
@@ -147,10 +249,20 @@ int main( int nargs, char** argv ) {
     pulsez.clear();
     twfm.clear();
     twfm_veto.clear();
+    // veto pulses
     pulsepe_veto.clear();
     pulsez_veto.clear();
     ttrig_veto.clear();
     tend_veto.clear();
+    // cry/cosmics
+    if ( cry_mode ) {
+      ncr_photons = ncr_electrons = ncr_muons = ncr_neutrons;
+      ke_crmuons.clear();
+      ke_crphotons.clear();
+      ke_crelectrons.clear();
+      ke_crneutrons.clear();
+    }
+
     // --------------------------------
 
     if ( ievent%1000==0 )
@@ -158,6 +270,39 @@ int main( int nargs, char** argv ) {
 
     std::cout << "------------------------------------------" << std::endl;
     std::cout << "EVENT " << ievent << std::endl;
+
+    // --------------------------------
+    // PROCESS CRY FILE
+
+    if ( cry_mode ) {
+      for (int icr=0; icr<nparticles; icr++) {
+	if ( hitx_mm->at(icr)==0 && hity_mm->at(icr)==0 && hitz_mm->at(icr)==0 )
+	  continue;
+
+	double crke = sqrt( momx_gev->at(icr)*momx_gev->at(icr) + momy_gev->at(icr)*momy_gev->at(icr) + momz_gev->at(icr)*momz_gev->at(icr) );
+
+	if ( pdg->at(icr)==13 || pdg->at(icr)==-13) {
+	  ncr_muons++;
+	  ke_crmuons.push_back( crke );
+	}
+	else if ( pdg->at(icr)==11 || pdg->at(icr)==-11) {
+	  ncr_electrons++;
+	  ke_crelectrons.push_back( crke );
+	}
+	else if ( pdg->at(icr)==22 ) {
+	  ncr_photons++;
+	  ke_crphotons.push_back( crke );
+	}
+	else if ( pdg->at(icr)==2112 ) {
+	  ncr_neutrons++;
+	  ke_crneutrons.push_back( crke );
+	}
+	else {
+	  ncr_other++;
+	  ke_crother.push_back( crke );
+	}
+      }
+    }//end of CRY mode
 
     // --------------------------------
     // GET RAT MC OBJECT
