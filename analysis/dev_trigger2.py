@@ -11,7 +11,7 @@ from math import sqrt,exp
 #pmtinfo = pmtinfo.set_index('opdetid')
 
 #inputfile = "output_kpipe_0.root"
-inputfile = "test.root"
+inputfile = "out.root"
 #reader = DSReader('kpipeout_test.root')
 #reader = DSReader('../cry/crkpipe.root')
 #reader = DSReader("output_kpipe_cryevents_2.root")
@@ -54,8 +54,6 @@ hexpect = ht.Clone("hexpect")
 hexpect_ave = ht.Clone("hexpect_ave")
 for h in [ hthresh, hthresh_ave ]:
     h.SetLineColor(ROOT.kGreen+4)
-
-
 
 # =====================================
 # FILL HISTOGRAMS
