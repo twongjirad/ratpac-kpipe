@@ -76,10 +76,9 @@ int find_trigger( RAT::DS::MC* mc,
 	  hoopid = 1001;     // endcap
       }
     }
-    //std::cout << " pmtid=" << pmtid << " hoopid=" << hoopid << std::endl;
+
     if ( hoop_cut && ( hoopid<min_hoop || hoopid>max_hoop ) )
       continue;
-
 
     for (int ihit=0; ihit<nhits; ihit++) {
       RAT::DS::MCPhoton* hit = pmt->GetMCPhoton( ihit );
