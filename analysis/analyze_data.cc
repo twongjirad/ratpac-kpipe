@@ -460,11 +460,11 @@ int main( int nargs, char** argv ) {
 	vetothreshold = 100*(sipm_darkrate_hz*1.0e-9)*window_ns_veto;
 
       if ( vetothreshold<1.0 )
-	vetoerr = 6.0; // stupid poission
+	vetoerr = 4.0; // stupid poission
       else if ( vetothreshold<5.0 )
 	vetoerr = 5.0*vetothreshold; 
       else
-	vetoerr = 5.0*sqrt(vetothreshold); // normal
+	vetoerr = 4.0*sqrt(vetothreshold); // normal
 
       vetothreshold += vetoerr;
 
