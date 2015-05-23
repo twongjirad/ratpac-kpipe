@@ -41,7 +41,7 @@ int main( int nargs, char** argv ) {
   const int NPMTS = 90000+1200;
   int n_decay_constants = 2;
   double window_ns = 40.0;
-  double window_ns_veto = 20.0;
+  double window_ns_veto = 10.0;
   double decay_weights[2] = { 0.6, 0.4 };
   double decay_constants_ns[2] = { 45.0, 67.6 };
   int n_decay_constants_veto = 1;
@@ -192,7 +192,7 @@ int main( int nargs, char** argv ) {
   tree->Branch( "ttrig_veto",  &ttrig_veto );
   tree->Branch( "tend_veto",  &tend_veto );
 //   tree->Branch( "twfm", &twfm );
-//   tree->Branch( "twfm_veto", &twfm_veto );
+  //tree->Branch( "twfm_veto", &twfm_veto );
   // cosmic truth
   if ( cry_mode ) {
     tree->Branch( "ncr_photons",  &ncr_photons, "ncr_photons/I" );
@@ -219,6 +219,8 @@ int main( int nargs, char** argv ) {
   
   while (ievent<nevents) {
     RAT::DS::Root* root = ds->GetEvent(ievent);
+    if ( cry_mode )
+      crytree->GetEntry( ievent );
 
     // --------------------------------
     // Clear Variables
@@ -235,7 +237,8 @@ int main( int nargs, char** argv ) {
     mudirv[0] = mudirv[1] = mudirv[2] = 0.0;
     muendv[0] = muendv[1] = muendv[2] = 0.0;
     muendr = 0;
-    npulses = npulses_veto = 0;
+    npulses = 0;
+    npulses_veto = 0;
     prefit_z_cm = 0;
     pulse_totodpe = 0;
     // inner pipe pulses
@@ -279,7 +282,9 @@ int main( int nargs, char** argv ) {
 	if ( hitx_mm->at(icr)==0 && hity_mm->at(icr)==0 && hitz_mm->at(icr)==0 )
 	  continue;
 
-	double crke = sqrt( momx_gev->at(icr)*momx_gev->at(icr) + momy_gev->at(icr)*momy_gev->at(icr) + momz_gev->at(icr)*momz_gev->at(icr) );
+	double crke = sqrt( momx_gev->at(icr)*momx_gev->at(icr) 
+			    + momy_gev->at(icr)*momy_gev->at(icr) 
+			    + momz_gev->at(icr)*momz_gev->at(icr) );
 
 	if ( pdg->at(icr)==13 || pdg->at(icr)==-13) {
 	  ncr_muons++;
@@ -302,6 +307,7 @@ int main( int nargs, char** argv ) {
 	  ke_crother.push_back( crke );
 	}
       }
+      std::cout << "  ncr_muons=" << ncr_muons << ", ncr_photos=" << ncr_photons << " neutrons=" << ncr_neutrons << " ncr_other=" << ncr_neutrons << std::endl;
     }//end of CRY mode
 
     // --------------------------------
@@ -456,30 +462,34 @@ int main( int nargs, char** argv ) {
       if ( ihoop<1000) {
 	vetothreshold = 10*((ihoop_end-ihoop+1))*(sipm_darkrate_hz*1.0e-9)*window_ns_veto;
       }
-      else
+      else {
 	vetothreshold = 100*(sipm_darkrate_hz*1.0e-9)*window_ns_veto;
+	//std::cout << "vetothresh: " << vetothreshold << std::endl;
+      }
 
       if ( vetothreshold<1.0 )
 	vetoerr = 4.0; // stupid poission
       else if ( vetothreshold<5.0 )
-	vetoerr = 5.0*vetothreshold; 
+	vetoerr = 7.0*vetothreshold;
       else
 	vetoerr = 4.0*sqrt(vetothreshold); // normal
 
+//       if ( ihoop>=1000 )
+// 	std::cout << "vetothresh: " << vetothreshold << " +/- " << vetoerr << ": " << (sipm_darkrate_hz*1.0e-9)*window_ns_veto << std::endl;
       vetothreshold += vetoerr;
 
       if ( sipm_darkrate_hz<=0 )
 	vetothreshold = 0.5;
 
-
-      npulses_veto = find_trigger( mc, 
-				   vetothreshold, window_ns_veto, sipm_darkrate_hz,
-				   true, ihoop, ihoop_end,
-				   false, 0, 0.0,
-				   n_decay_constants_veto, decay_weights_veto, decay_constants_ns_veto,
-				   pulselist_veto, 90000, true, temp_twfm_veto );
+      int npulses_vetohoop = find_trigger( mc, 
+					   vetothreshold, window_ns_veto, sipm_darkrate_hz,
+					   true, ihoop, ihoop_end,
+					   false, 0, 0.0,
+					   n_decay_constants_veto, decay_weights_veto, decay_constants_ns_veto,
+					   pulselist_veto, 90000, true, temp_twfm_veto );
+      npulses_veto += npulses_vetohoop;
       
-      if ( npulses_veto>0 ) {
+      if ( npulses_vetohoop>0 ) {
 	assign_pulse_charge( mc, pmtinfofile, pulselist_veto,
 			     sipm_darkrate_hz,
 			     true, ihoop, ihoop,
@@ -490,15 +500,15 @@ int main( int nargs, char** argv ) {
 	odintegral += *od_it; 
       float odpos[3];
       pmtinfo->getposition( 90000 + (ihoop-900), odpos );
-      if ( npulses_veto>0 || ( sipm_darkrate_hz==0 && odintegral>0 ) ) {
+      if ( npulses_vetohoop>0 || ( sipm_darkrate_hz==0 && odintegral>0 ) ) {
 	std::cout << "    -- od hoopid: [" << ihoop << "," << ihoop_end << "]"
 		  << ": z=" << odpos[2] 
 		  << " integral=" << odintegral 
 		  << " dark rate in window=" << 10*((ihoop_end-ihoop+1))*(sipm_darkrate_hz*1.0e-9)*window_ns_veto << " +/- " << vetoerr
 		  << " vetothreshold=" << vetothreshold << " (ave=" << vetothreshold/window_ns_veto << ")"
-		  << " npulses=" << npulses_veto 
+		  << " npulses=" << npulses_vetohoop
 		  << std::endl;
-	for (int iod=0; iod<npulses_veto; iod++) {
+	for (int iod=0; iod<npulses_vetohoop; iod++) {
 	  std::cout << "     odpulse " << iod << ": "
 		    << " pe=" << pulselist_veto.at(iod)->pe_adjusted
 		    << " t=(" << pulselist_veto.at(iod)->tstart << ", " << pulselist_veto.at(0)->tpeak << ", " << pulselist_veto.at(0)->tend << ")"
@@ -511,8 +521,10 @@ int main( int nargs, char** argv ) {
 	  tend_veto.push_back(  pulselist_veto.at(iod)->tend );
 	}
       }
-      if ( ihoop==910 )
+      if ( ihoop>=1000 && npulses_vetohoop>0 ) {
 	twfm_veto = temp_twfm_veto;
+	std::cout << "save veto wfm: " << ihoop << std::endl;
+      }
       pulselist_veto.clear();
     }//hoop loop
 
