@@ -1,6 +1,7 @@
 #include "kptrigger.h"
 #include <iostream>
 #include <ctime>
+#include <assert.h>
 #include "pmtinfo.hh"
 
 KPPulse::KPPulse() {
@@ -20,7 +21,8 @@ int find_trigger( RAT::DS::MC* mc,
 		  bool hoop_cut, double min_hoop, double max_hoop,
 		  bool time_cut, double min_time, double max_time,
 		  int n_decay_constants, double decay_weights[], double decay_constants_ns[], 
-		  KPPulseList& pulses, int first_od_sipmid, bool veto, std::vector<double>& hitwfm ) {
+		  KPPulseList& pulses, int first_od_sipmid, bool veto, std::vector<double>& hitwfm,
+		  int version ) {
 
   // (1) bin hits out to 20 microseconds.
   // (2) scan until a bin over threshold
@@ -66,27 +68,32 @@ int find_trigger( RAT::DS::MC* mc,
     }
     else {
       // version 1
-      // veto has string structure, which in retrospect, was dumb, we're interested in z
-      // this uses info only in my head. correlates with build_geometry.py
-//       if ( pmtid<first_od_sipmid+1000 )
-// 	hoopid = 900+pmtid%100; // 0-999 inclusive are radial
-//       else {
-// 	if (pmtid<first_od_sipmid+1100)
-// 	  hoopid = 1000;     // endcap
-// 	else
-// 	  hoopid = 1001;     // endcap
-//       }
-
-      //version 2, this is fixed
-      if ( pmtid<first_od_sipmid+1000 )
-	hoopid = 900 + (pmtid-first_od_sipmid)/10; // 0-999 inclusive are radial
-      else {
-	if (pmtid<first_od_sipmid+1100)
-	  hoopid = 1000;     // endcap
-	else
-	  hoopid = 1001;     // endcap
+      if ( version==1 ) {
+	// veto has string structure, which in retrospect, was dumb, we're interested in z
+	// this uses info only in my head. correlates with build_geometry.py
+	if ( pmtid<first_od_sipmid+1000 )
+	  hoopid = 900+pmtid%100; // 0-999 inclusive are radial
+	else {
+	  if (pmtid<first_od_sipmid+1100)
+	    hoopid = 1000;     // endcap
+	  else
+	    hoopid = 1001;     // endcap
+	}
       }
-
+      else if ( version==2 ) {
+	//version 2, this is fixed
+	if ( pmtid<first_od_sipmid+1000 )
+	  hoopid = 900 + (pmtid-first_od_sipmid)/10; // 0-999 inclusive are radial
+	else {
+	  if (pmtid<first_od_sipmid+1100)
+	    hoopid = 1000;     // endcap
+	  else
+	    hoopid = 1001;     // endcap
+	}
+      }
+      else 
+	assert(false);
+      
     }
 
     if ( hoop_cut && ( hoopid<min_hoop || hoopid>max_hoop ) )
@@ -258,7 +265,7 @@ void assign_pulse_charge( RAT::DS::MC* mc, std::string pmtinfofile, KPPulseList&
 			  double darkrate_hz,
 			  bool hoop_cut, double min_hoop, double max_hoop,
 			  double decay_const_ns, 
-			  int first_od_sipmid, bool veto ) {
+			  int first_od_sipmid, bool veto, int version ) {
   // get pulse info: assigned charge
   if ( pulselist.size()==0 )
     return;
@@ -320,24 +327,31 @@ void assign_pulse_charge( RAT::DS::MC* mc, std::string pmtinfofile, KPPulseList&
     }
     else {
       // version 1
-      // veto has string structure, which in retrospect, was dumb, we're interested in z
-      // this uses info only in my head. correlates with build_geometry.py
-//       if ( pmtid<first_od_sipmid+1000 )
-// 	hoopid = 900+pmtid%100; // 0-999 inclusive are radial
-//       else {
-// 	if (pmtid<first_od_sipmid+1100)
-// 	  hoopid = 1000;     // endcap
-// 	else
-// 	  hoopid = 1001;     // endcap
-//       }
-      // version 2
-      if ( pmtid<first_od_sipmid+1000 )
-	hoopid = 900 + (pmtid-first_od_sipmid)/10; // 0-999 inclusive are radial
+      if ( version==1 ) {
+	// veto has string structure, which in retrospect, was dumb, we're interested in z
+	// this uses info only in my head. correlates with build_geometry.py
+	if ( pmtid<first_od_sipmid+1000 )
+	  hoopid = 900+pmtid%100; // 0-999 inclusive are radial
+	else {
+	  if (pmtid<first_od_sipmid+1100)
+	    hoopid = 1000;     // endcap
+	  else
+	    hoopid = 1001;     // endcap
+	}
+      }
+      else if ( version==2 ) {
+	// version 2
+	if ( pmtid<first_od_sipmid+1000 )
+	  hoopid = 900 + (pmtid-first_od_sipmid)/10; // 0-999 inclusive are radial
+	else {
+	  if (pmtid<first_od_sipmid+1100)
+	    hoopid = 1000;     // endcap
+	  else
+	    hoopid = 1001;     // endcap
+	}
+      }
       else {
-	if (pmtid<first_od_sipmid+1100)
-	  hoopid = 1000;     // endcap
-	else
-	  hoopid = 1001;     // endcap
+	assert(false);
       }
     }
     //std::cout << " assign pmtid=" << pmtid << " hoopid=" << hoopid << std::endl;
