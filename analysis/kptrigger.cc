@@ -65,16 +65,28 @@ int find_trigger( RAT::DS::MC* mc,
       // inner pipe hoop structure
     }
     else {
+      // version 1
       // veto has string structure, which in retrospect, was dumb, we're interested in z
       // this uses info only in my head. correlates with build_geometry.py
+//       if ( pmtid<first_od_sipmid+1000 )
+// 	hoopid = 900+pmtid%100; // 0-999 inclusive are radial
+//       else {
+// 	if (pmtid<first_od_sipmid+1100)
+// 	  hoopid = 1000;     // endcap
+// 	else
+// 	  hoopid = 1001;     // endcap
+//       }
+
+      //version 2, this is fixed
       if ( pmtid<first_od_sipmid+1000 )
-	hoopid = 900+pmtid%100; // 0-999 inclusive are radial
+	hoopid = 900 + (pmtid-first_od_sipmid)/10; // 0-999 inclusive are radial
       else {
 	if (pmtid<first_od_sipmid+1100)
 	  hoopid = 1000;     // endcap
 	else
 	  hoopid = 1001;     // endcap
       }
+
     }
 
     if ( hoop_cut && ( hoopid<min_hoop || hoopid>max_hoop ) )
@@ -296,10 +308,20 @@ void assign_pulse_charge( RAT::DS::MC* mc, std::string pmtinfofile, KPPulseList&
       // inner pipe hoop structure
     }
     else {
+      // version 1
       // veto has string structure, which in retrospect, was dumb, we're interested in z
       // this uses info only in my head. correlates with build_geometry.py
+//       if ( pmtid<first_od_sipmid+1000 )
+// 	hoopid = 900+pmtid%100; // 0-999 inclusive are radial
+//       else {
+// 	if (pmtid<first_od_sipmid+1100)
+// 	  hoopid = 1000;     // endcap
+// 	else
+// 	  hoopid = 1001;     // endcap
+//       }
+      // version 2
       if ( pmtid<first_od_sipmid+1000 )
-	hoopid = 900+pmtid%100; // 0-999 inclusive are radial
+	hoopid = 900 + (pmtid-first_od_sipmid)/10; // 0-999 inclusive are radial
       else {
 	if (pmtid<first_od_sipmid+1100)
 	  hoopid = 1000;     // endcap
@@ -312,10 +334,10 @@ void assign_pulse_charge( RAT::DS::MC* mc, std::string pmtinfofile, KPPulseList&
       ncuthits+=nhits;
       continue;
     }
-    //std::cout << " assign pmtid=" << pmtid << " hoopid=" << hoopid << std::endl;
 
     float pmtpos[3];
     pmtinfo->getposition( pmtid, pmtpos );
+    //std::cout << " assign pmtid=" << pmtid << " hoopid=" << hoopid << " z=" << pmtpos[2] << std::endl;
 
     for (int ihit=0; ihit<nhits; ihit++) {
 
