@@ -106,14 +106,14 @@ part1="""<?xml version="1.0" encoding="UTF-8"?>
   <tube name="outerpipe"
 	lunit="m"
 	rmin="0.0"
-	rmax="1.60"
+	rmax="1.650"
 	z="90.20"
 	deltaphi="360"
 	aunit="deg"/>
   <tube name="vetoregion"
 	lunit="m"
 	rmin="0.0"
-	rmax="1.575"
+	rmax="1.625"
 	z="90.15" 
 	deltaphi="360"
 	aunit="deg"/>

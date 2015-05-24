@@ -32,13 +32,13 @@ def generate_gdml_file( gdml_filename, pmtinfo_filename, ip_nsipms_per_ring, ip_
             isipm += 1
 
     # OD SIPMS
-    op_string_delta_phi = 360.0/float(op_nstrings)
+    op_string_delta_phi = 180.0/float(op_nstrings)
     op_string_delta_z = pipelength/float(op_nsipms_per_strings-1)
     op_sipmdict = {}
-    for istring in xrange(0, op_nstrings):
-        phi = istring*op_string_delta_phi
-        for istring_sipm in xrange( 0, op_nsipms_per_strings):
-            z = -0.5*pipelength + istring_sipm*op_string_delta_z
+    for istring_sipm in xrange( 0, op_nsipms_per_strings):
+        z = -0.5*pipelength + istring_sipm*op_string_delta_z
+        for istring in xrange(0, op_nstrings):
+            phi = istring*op_string_delta_phi
             x = (op_radius_cm)*cos( phi*pi/180.0 )
             y = (op_radius_cm)*sin( phi*pi/180.0 )
             x2 = x+(0.1)*cos( phi*pi/180.0 )
