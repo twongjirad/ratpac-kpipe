@@ -109,7 +109,7 @@ int main( int nargs, char** argv ) {
 
   TFile* out = new TFile(outfile.c_str(), "RECREATE" );
   // variables we want
-  int npe, idpe, odpe;
+  int npe, idpe, odpe, predark_idpe, predark_odpe;
   int npmts, idpmts, odpmts;
   int nhoops;
   // truth
@@ -159,6 +159,8 @@ int main( int nargs, char** argv ) {
   tree->Branch( "npe", &npe, "npe/I" );
   tree->Branch( "idpe", &idpe, "idpe/I" );
   tree->Branch( "odpe", &odpe, "odpe/I" );
+  tree->Branch( "predark_idpe", &predark_idpe, "predark_idpe/I" );
+  tree->Branch( "predark_odpe", &predark_odpe, "predark_odpe/I" );
   tree->Branch( "npmts", &npmts, "npmts/I" );
   tree->Branch( "idpmts", &idpmts, "idpmts/I" );
   tree->Branch( "odpmts", &odpmts, "odpmts/I" );
@@ -209,7 +211,7 @@ int main( int nargs, char** argv ) {
 
   int ievent = 0;
   int nevents = ds->GetTotal();
-  //nevents = 13;
+  //nevents = 32;
 
   KPPulseList pulselist;
   KPPulseList pulselist_veto;
@@ -225,7 +227,7 @@ int main( int nargs, char** argv ) {
     // Clear Variables
 
     //summary vars
-    npe = idpe = odpe = 0;
+    npe = idpe = odpe = predark_idpe = predark_odpe = 0;
     npmts = idpmts = odpmts = 0;
     // truth
     for (int i=0; i<3; i++)
@@ -325,8 +327,31 @@ int main( int nargs, char** argv ) {
 
     // --------------------------------
     // GENERATE DARK NOISE
-    if ( sipm_darkrate_hz>0 ) 
+    if ( sipm_darkrate_hz>0 )  {
+
+      npmts = mc->GetMCPMTCount();
+      idpmts = odpmts = 0;
+      npe = mc->GetNumPE();
+      predark_idpe = predark_odpe = 0;
+      int num = npmts;
+      for ( int ipmt=0; ipmt<num; ipmt++ ) {
+	RAT::DS::MCPMT* pmt = mc->GetMCPMT( ipmt );
+	int nhits = pmt->GetMCPhotonCount();
+	int pmtid = pmt->GetID();
+	
+	if ( pmtid<first_od_sipmid ) {
+	  predark_idpe += nhits;
+	  idpmts++;
+	}
+	else {
+	  predark_odpe += nhits;
+	  odpmts++;
+	}
+      }
+      std::cout << "  pre-dark noise ID PEs: " << predark_idpe << " PMTs: " << idpmts << std::endl;
+      std::cout << "  pre-dark noise OD PEs: " << predark_odpe << " PMTs: " << odpmts << std::endl;      
       gen_dark_noise( mc, pmtinfofile, sipm_darkrate_hz, 10000 );
+    }
 
     // --------------------------------
     // PROCESS RAT FILE
@@ -361,7 +386,7 @@ int main( int nargs, char** argv ) {
       std::cout << "  particle=" << ipart << " pdg=" << mc->GetMCParticle(ipart)->GetPDGCode() << " ke=" << mc->GetMCParticle(ipart)->GetKE() << std::endl;
     }
 
-    // count stuff
+    // count stuff (post dark noise)
     npmts = mc->GetMCPMTCount();
     idpmts = odpmts = 0;
     npe = mc->GetNumPE();
@@ -498,7 +523,8 @@ int main( int nargs, char** argv ) {
       for ( std::vector<double>::iterator od_it=temp_twfm_veto.begin(); od_it!=temp_twfm_veto.end(); od_it++)
 	odintegral += *od_it; 
       float odpos[3];
-      pmtinfo->getposition( 90000 + (ihoop-900), odpos );
+      //pmtinfo->getposition( 90000 + (ihoop-900), odpos );
+      pmtinfo->getposition( 90000 + (ihoop-900)*10, odpos );
       if ( npulses_vetohoop>0 || ( sipm_darkrate_hz==0 && odintegral>0 ) ) {
 	std::cout << "    -- od hoopid: [" << ihoop << "," << ihoop_end << "]"
 		  << ": z=" << odpos[2] 
