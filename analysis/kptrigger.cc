@@ -123,6 +123,10 @@ int find_trigger( RAT::DS::MC* mc,
     }
     ave_window = double(nhits_window)/double(windowbins);
 
+    // expectations
+    std::vector<double> pulse_expectation;
+    pulse_expectation.resize( pulses.size() );
+
     // Check for new pulse
     if ( nactive==0 ) {
       // no active pulses. do search based on hits ver threshold of moving window
@@ -146,6 +150,7 @@ int find_trigger( RAT::DS::MC* mc,
       if ( use_ave )
 	modthresh = threshold/double(windowbins);
       bool allfalling = true;
+      int ipulse = 0;
       for ( KPPulseListIter it=pulses.begin(); it!=pulses.end(); it++ ) {
 	if ( (*it)->fStatus==KPPulse::kRising ) {
 	  // have a rising peak. will block creation of new pulse.
@@ -154,6 +159,7 @@ int find_trigger( RAT::DS::MC* mc,
 	    modthresh += 2.0*nhits_window;
 	  else
 	    modthresh += 2.0*ave_window;
+	  pulse_expectation.at(ipulse) = modthresh;
 	}
 	else {
 	  // for pulses considered falling, we modify the threshold to be 3 sigma (roughly) above
@@ -169,7 +175,9 @@ int find_trigger( RAT::DS::MC* mc,
 	  else
 	    expectation = ((*it)->peakamp)*exp( -arg );
 	  modthresh += ( expectation + 3.0*sqrt(expectation) );
+	  pulse_expectation.at(ipulse) = expectation;
 	}
+	ipulse++;
       }//end of loop over pulses
 
 //       if ( veto )
@@ -188,6 +196,7 @@ int find_trigger( RAT::DS::MC* mc,
       }
 
       // now we find max of rising pulses and end of falling pulses
+      ipulse = 0;
       for ( KPPulseListIter it=pulses.begin(); it!=pulses.end(); it++ ) {
 	KPPulse* apulse = *it;
 	if ( apulse->fStatus==KPPulse::kDefined )
@@ -213,11 +222,13 @@ int find_trigger( RAT::DS::MC* mc,
 	  double decay_constant = 0.0;
 	  for (int idcy=0; idcy<n_decay_constants; idcy++)
 	    decay_constant += decay_weights[idcy]*decay_constants_ns[idcy];
-	  if ( ibin*nspertic > apulse->tpeak + 4*decay_constant ) {
+	  //if (  pulse_expectation.at(ipulse) <=threshold*0.5 || ((ibin-windowbins)*nspertic > apulse->tpeak + 10*decay_constant) ) {
+	  if ( ((ibin-windowbins)*nspertic > apulse->tpeak + 10*decay_constant) ) {
 	    apulse->tend = (ibin-windowbins)*nspertic;
 	    apulse->fStatus=KPPulse::kDefined;
 	  }
 	}
+	ipulse++;
       }//end of loop over pulses
     }//end of active pulse condition
     

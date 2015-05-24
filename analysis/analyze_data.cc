@@ -47,10 +47,10 @@ int main( int nargs, char** argv ) {
   int n_decay_constants_veto = 1;
   double decay_weights_veto[1] = { 1.0 };
   double decay_constants_ns_veto[1] = { 50.0 };
-//   double sipm_darkrate_hz = 1.0e6;
-//   double threshold = 500.0;
-  double sipm_darkrate_hz = 0.0;
-  double threshold = 10.0;
+  double sipm_darkrate_hz = 1.0e6;
+  double threshold = 500.0;
+//   double sipm_darkrate_hz = 0.0;
+//   double threshold = 10.0;
   // --------------------------------
   // INPUT CRY VARS
 
