@@ -1,0 +1,4 @@
+kpipe_v1.gdml:  90 m inner tank, 1.5 m inner tank radius. 5 cm veto.  sipms in veto arranged in strings.  100 per string, with 10 strings along the detector.
+kpipe_v2.gdml:  same as v1, but arrange veto sipms in hoops, only put sipms on top half of circumfrance.
+kpipe_v3.gdml:  same as v2, but 10 cm veto
+kpipe_v4.gdml:  as as v2, but double the sipms
