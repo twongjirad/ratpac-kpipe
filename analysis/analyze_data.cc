@@ -52,7 +52,6 @@ int main( int nargs, char** argv ) {
 //   double sipm_darkrate_hz = 0.0;
 //   double threshold = 10.0;
 
-
   // --------------------------------
   // INPUT CRY VARS
 

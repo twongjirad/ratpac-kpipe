@@ -65,6 +65,7 @@ int find_trigger( RAT::DS::MC* mc,
       // inner pipe hoop structure
     }
     else {
+      // version 1
       // veto has string structure, which in retrospect, was dumb, we're interested in z
       // this uses info only in my head. correlates with build_geometry.py
       if ( pmtid<first_od_sipmid+1000 )
@@ -75,6 +76,10 @@ int find_trigger( RAT::DS::MC* mc,
 	else
 	  hoopid = 1001;     // endcap
       }
+
+      // version 2
+      // fixed veto to use hoop organization
+      // do nothing now
     }
 
     if ( hoop_cut && ( hoopid<min_hoop || hoopid>max_hoop ) )
