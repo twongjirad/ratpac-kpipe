@@ -47,6 +47,7 @@ int main( int nargs, char** argv ) {
   int n_decay_constants_veto = 1;
   double decay_weights_veto[1] = { 1.0 };
   double decay_constants_ns_veto[1] = { 50.0 };
+  int trig_version = 2;
   double sipm_darkrate_hz = 1.0e6;
   double threshold = 500.0;
 //   double sipm_darkrate_hz = 0.0;
@@ -510,14 +511,14 @@ int main( int nargs, char** argv ) {
 					   true, ihoop, ihoop_end,
 					   false, 0, 0.0,
 					   n_decay_constants_veto, decay_weights_veto, decay_constants_ns_veto,
-					   pulselist_veto, 90000, true, temp_twfm_veto );
+					   pulselist_veto, 90000, true, temp_twfm_veto, trig_version );
       npulses_veto += npulses_vetohoop;
       
       if ( npulses_vetohoop>0 ) {
 	assign_pulse_charge( mc, pmtinfofile, pulselist_veto,
 			     sipm_darkrate_hz,
 			     true, ihoop, ihoop,
-			     50.0, 90000, true );
+			     50.0, 90000, true, trig_version );
       }
       double odintegral=0.0;
       for ( std::vector<double>::iterator od_it=temp_twfm_veto.begin(); od_it!=temp_twfm_veto.end(); od_it++)
