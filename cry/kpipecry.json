@@ -1,0 +1,11 @@
+{ "job": {
+      	"script":"/net/hisrv0001/home/taritree/kpipe/production/ratpac-kpipe/cry/run_cosmic_ray_events.sh",
+	"startjob":"2002",
+	"njobs":"500",
+	"nargs":"3",
+	"packagefiles":["/net/hisrv0001/home/taritree/kpipe/production/rat.tar.gz","/net/hisrv0001/home/taritree/kpipe/production/python2.6.9.tar"],
+	"args":[ {"argname":"id","value":"%d","njobids":"1","transfer":"False","type":"arg"},
+		 {"argname":"cry-file","value":"/net/nudsk0001/d00/scratch/taritree/cry_gen/cry_events_%05d.root","njobids":"1","transfer":"True","type":"input"},
+		 {"argname":"squeak","value":"output_kpipe_cryevents_%05d.root","njobids":"1","transfer":"True","type":"output"} ]
+	}
+}

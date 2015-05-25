@@ -4,6 +4,7 @@
 #include <G4GeometryManager.hh>
 #include <G4PhysicalVolumeStore.hh>
 #include <G4LogicalVolumeStore.hh>
+#include <G4LogicalBorderSurface.hh>
 #include <G4VPhysicalVolume.hh>
 #include <G4SolidStore.hh>
 #include <G4SDManager.hh>
@@ -15,12 +16,22 @@
 #include <RAT/GeoBuilder.hh>
 #include <RAT/Materials.hh>
 #include <RAT/GLG4SimpleOpDetSD.hh>
+#include <RAT/GeoFactory.hh>
+
+#include <RAT/DetectorFactory.hh>
+#include <RAT/WatchmanDetectorFactory.hh>
+#include <RAT/TheiaDetectorFactory.hh>
 
 using namespace std;
 
 namespace RAT {
 
 DetectorConstruction* DetectorConstruction::sDetectorConstruction = NULL;
+
+DetectorConstruction::DetectorConstruction() {
+    DetectorFactory::Register("Watchman",new WatchmanDetectorFactory());
+    DetectorFactory::Register("Theia",new TheiaDetectorFactory());
+}
 
 G4VPhysicalVolume* DetectorConstruction::Construct() {
   // Load the DETECTOR table
@@ -44,10 +55,20 @@ G4VPhysicalVolume* DetectorConstruction::Construct() {
     info << "No experiment-specific tables loaded." << newline;
   }
 
-  string geo_file = ldetector->GetS("geo_file");
-  info << "Loading detector geometry from " << geo_file << newline;
-  if (db->Load(geo_file) == 0) {
-    Log::Die("DetectorConstruction: Could not open detector geometry");
+  try { 
+    string detector_factory = ldetector->GetS("detector_factory");
+    info << "Loading detector factory " << detector_factory << newline;
+    DetectorFactory::DefineWithFactory(detector_factory,ldetector);
+  } catch (DBNotFoundError &e) {
+    try {
+      string geo_file = ldetector->GetS("geo_file");
+      info << "Loading detector geometry from " << geo_file << newline;
+      if (db->Load(geo_file) == 0) {
+        Log::Die("DetectorConstruction: Could not open detector geometry");
+      }
+    } catch (DBNotFoundError &e) {
+        Log::Die("DetectorConstruction: Could not open geo_file or detector_factory");
+    }
   }
 
   info << "Constructing detector materials...\n";
@@ -74,6 +95,9 @@ G4VPhysicalVolume* DetectorConstruction::Construct() {
   if ( geo.GetBuilderSource()==GeoBuilder::GDMLFILE ) {
     SetupGDMLSD();
   }
+
+  info << "Dump Surface Info...\n";
+  G4LogicalBorderSurface::DumpInfo();
 
   return fWorldPhys;
 }
@@ -149,5 +173,45 @@ void DetectorConstruction::SetupGDMLSD() {
     break;
   }
 }
+
+void DetectorConstruction::SetupGDMLSurfaces() {
+  DBLinkGroup lgeo = DB::Get()->GetLinkGroup("GEO");
+
+  // find GDML table
+  DBLinkGroup::iterator i_table;
+  for (i_table = lgeo.begin(); i_table != lgeo.end(); ++i_table) {
+    string name = i_table->first;
+    DBLinkPtr table = i_table->second;
+    string type;
+
+    // check for GDML entry
+    string gdmlfilename;
+    try {
+      gdmlfilename = table->GetS("gdml_file");
+    }
+    catch (DBNotFoundError &e) {
+    }
+    if ( gdmlfilename!="" )
+      continue;
+
+    try {
+      type = table->GetS("type");
+    } catch (DBNotFoundError &e) {
+      Log::Die("GeoBuilder error: volume " + name + " has no type");
+    }
+
+    if (type!="border")
+      continue;
+
+    try {
+      info << "Make border: " << newline;
+      GeoFactory::ConstructWithFactory(type, table);
+    } catch (GeoFactoryNotFoundError &e) {
+      Log::Die("GeoBuilder error: Cannot find factory for volume type "  + type);
+    }
+    
+  }
+}
+
 
 }

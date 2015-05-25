@@ -6,10 +6,14 @@
 #include "RAT/DSReader.hh"
 #include "RAT/DS/MC.hh"
 
-using namespace RAT;
-using namespace std;
+#include "kptrigger.h"
 
 int main( int nargs, char** argv ) {
+
+  if ( nargs<3 ) {
+    std::cout << "usage: scrape_data <input RAT root file> <output rootfile> [optional: pmt info file. default: ]" << std::endl;
+    return 0;
+  }
 
   double prompt_cut = 500.0; // ns
 
@@ -20,21 +24,30 @@ int main( int nargs, char** argv ) {
   std::string inputfile = argv[1];
   std::string outfile = argv[2];
 
+  std::cout << "analyze: " << inputfile << std::endl;
 
-  DSReader* ds = new DSReader( inputfile.c_str() ); 
+  std::string pmtinfofile = "/net/t2srv0008/app/d-Chooz/Software/kpipe/ratpac-kpipe/data/kpipe/PMTINFO.root";
+  //std::string pmtinfofile = "../data/kpipe/PMTINFO.root";
+  if (nargs==4) 
+    pmtinfofile = argv[3];
 
-  TFile* tf_pmtinfo = new TFile( "../data/kpipe/PMTINFO.root", "open" );
+  RAT::DSReader* ds = new RAT::DSReader( inputfile.c_str() ); 
+  TFile* tf_pmtinfo = new TFile( pmtinfofile.c_str(), "open" );
+
   TTree* pmtinfo = (TTree*)tf_pmtinfo->Get("pmtinfo");
   float pmtpos[3];
   pmtinfo->SetBranchAddress("x",&pmtpos[0]);
   pmtinfo->SetBranchAddress("y",&pmtpos[1]);
   pmtinfo->SetBranchAddress("z",&pmtpos[2]);
 
-  TFile* out = new TFile(outfile.c_str(), "RECREATE" );
+  TFile* out = new TFile( outfile.c_str(), "RECREATE" );
+  
   // variables we want
   int npe;
-  int npe_prompt;
-  int npe_late;
+  int npe_prompt[4];
+  int npe_late[4];
+  int npe_prompt_tot;
+  int npe_late_tot;
   int npmts;
   int nhoops;
   double pos[3];
@@ -51,12 +64,26 @@ int main( int nargs, char** argv ) {
   double rv, zv;  // from truth
   double tstart, tstart_dcye;
   double tave, tave_dcye;
+  // trigger info
+//   int npulses = 0;
+// //   std::vector<double> ttrig(4);
+// //   std::vector<double> tpeak(4);
+// //   std::vector<double> peakamp(4);
+// //   std::vector<double> tend(4);
+// //   std::vector<double> pulsepe(4);
+//   double ttrig[10];
+//   double tpeak[10];
+//   double peakamp[10];
+//   double tend[10];
+//   double pulsepe[10];
   
   TTree* tree = new TTree( "mcdata", "MC Data" );
   // recon
   tree->Branch( "npe", &npe, "npe/I" );
-  tree->Branch( "npe_prompt", &npe_prompt, "npe_prompt/I" );
-  tree->Branch( "npe_late", &npe_late, "npe_late/I" );
+  tree->Branch( "npe_prompt", npe_prompt, "npe_prompt[4]/I" );
+  tree->Branch( "npe_late", npe_late, "npe_late[4]/I" );
+  tree->Branch( "npe_prompt_tot", npe_prompt_tot, "npe_prompt_tot/I" );
+  tree->Branch( "npe_late_tot", npe_late_tot, "npe_late_tot/I" );
   tree->Branch( "npmts", &npmts, "npmts/I" );
   tree->Branch( "pos", pos, "pos[3]/D" );
   tree->Branch( "r", &r, "r/D" );
@@ -80,24 +107,45 @@ int main( int nargs, char** argv ) {
   tree->Branch( "mumomv", &mumomv, "mumomv/D" );
   tree->Branch( "rv", &rv, "rv/D" );  
   tree->Branch( "zv", &zv, "zv/D" );
+  // trigger vars
+//   tree->Branch( "npulses", &npulses, "npulses/I" );
+//   tree->Branch( "ttrig",  ttrig, "ttrig[10]/D" );
+//   tree->Branch( "tpeak",  tpeak, "tpeak[10]/D" );
+//   tree->Branch( "tend",  tend, "tend[10]/D" );
+//   tree->Branch( "peakamp",  peakamp, "peakamp[10]/D" );
+//   tree->Branch( "pulsepe",  pulsepe, "pulsepe[10]/D" );
 
-  long ievent = 0;
-  long nevents = ds->GetTotal();
+  int ievent = 0;
+  int nevents = ds->GetTotal();
+
+  //KPPulseList pulselist;
+
+  std::cout << "Number of events: " << nevents << std::endl;
+  nevents = 10;
   
   while (ievent<nevents) {
-    DS::Root* root = ds->NextEvent();
+    RAT::DS::Root* root = ds->NextEvent();
 
-    if ( ievent%1000==0 )
-      std::cout << "Event " << ievent << std::endl;
+//     npulses = 0;
+//     for (int i=0; i<10; i++){
+//       ttrig[i] = 0;
+//       tpeak[i] = 0;
+//       tend[i] = 0;
+//       peakamp[i] = 0;
+//       pulsepe[i] = 0;
+//     }
 
-    DS::MC* mc = root->GetMC();
+    //if ( ievent%1000==0 )
+    std::cout << "Event " << ievent << std::endl;
+
+    RAT::DS::MC* mc = root->GetMC();
     if ( mc==NULL )
       break;
     npe = mc->GetNumPE();
     npmts = mc->GetMCPMTCount();
 
-    if ( mc->GetMCParticleCount()==0 )
-      continue;
+//     if ( mc->GetMCParticleCount()==0 )
+//       continue;
 
     // true vertex
     posv[0] = mc->GetMCParticle(0)->GetPosition().X()/10.0; //change to cm
@@ -123,7 +171,9 @@ int main( int nargs, char** argv ) {
     // recon
     int hoop_hit[1000] = {0};
     nhoops = 0;
-    npe_prompt = npe_late = 0;
+    for (int i=0; i<4; i++)
+      npe_prompt[i] = npe_late[i] = 0;
+    npe_prompt_tot = npe_late_tot = 0;
     tstart = tave = 0.0;
     r = z = qhr = qhz = 0.0;
     r_prompt = z_prompt = r_late = z_late = 0.0;
@@ -136,7 +186,7 @@ int main( int nargs, char** argv ) {
     if (npe>0) {
 
       for (int ipmt=0; ipmt<npmts; ipmt++) {
-	DS::MCPMT* pmt = mc->GetMCPMT( ipmt );
+	RAT::DS::MCPMT* pmt = mc->GetMCPMT( ipmt );
 	int pmtid = pmt->GetID();
 	pmtinfo->GetEntry( pmtid );
 
@@ -177,11 +227,16 @@ int main( int nargs, char** argv ) {
 
 	// timing
 	for (int ihit=0; ihit<pmt->GetMCPhotonCount(); ihit++) {
-	  DS::MCPhoton* hit = pmt->GetMCPhoton(ihit);
+	  RAT::DS::MCPhoton* hit = pmt->GetMCPhoton(ihit);
 	  // earliest time
 	  double t = hit->GetHitTime();
+	  int origin = hit->GetOriginFlag();
 	  if ( t<prompt_cut ) {
-	    npe_prompt += 1;
+	    if ( origin>=0 && origin<=2 )
+	      npe_prompt[origin] += 1;
+	    else
+	      npe_prompt[3] += 1;
+	    npe_prompt_tot += 1;
 	    tave += t;
 	    if ( tstart>t ) 
 	      tstart = t;
@@ -189,13 +244,16 @@ int main( int nargs, char** argv ) {
 	      pos_prompt[v] += pmtpos[v];
 	  }
 	  else {
-	    npe_late += 1;
+	    if ( origin>=0 && origin<=2 )
+	      npe_late[origin] += 1;
+	    else
+	      npe_late[3] += 1;
+	    npe_late_tot += 1;
 	    tave_dcye += t;
 	    if ( tstart_dcye>t )
 	      tstart_dcye = t;
 	    for (int v=0; v<3; v++)
 	      pos_late[v] += pmtpos[v];
-
 	  }
 	}//end of hit loop
       
@@ -205,11 +263,11 @@ int main( int nargs, char** argv ) {
       for (int v=0; v<3; v++) {
 	pos[v] /= double(npe);
 	qhpos[v] /= double(npe);
-	pos_prompt[v] /= double(npe_prompt);
-	pos_late[v] /= double(npe_late);
+	pos_prompt[v] /= double(npe_prompt_tot);
+	pos_late[v] /= double(npe_late_tot);
       }
-      tave /= double(npe_prompt);
-      tave_dcye /= double(npe_late);
+      tave /= double(npe_prompt_tot);
+      tave_dcye /= double(npe_late_tot);
 
       // r,z
       r = sqrt(pos[0]*pos[0]+pos[1]*pos[1]);
@@ -224,8 +282,31 @@ int main( int nargs, char** argv ) {
       nhoops = 0;
       for (int i=0; i<1000; i++)
 	nhoops += hoop_hit[i];
+
+      // TRIGGER
+//       find_trigger( mc, 5.0, 5.0, 10.0, 45.0, pulselist, 90000, false );
+//       npulses = 0;
+//       for ( KPPulseListIter it=pulselist.begin(); it!=pulselist.end(); it++ ) {
+// // 	ttrig.push_back( (*it)->tstart );
+// // 	tpeak.push_back( (*it)->tpeak );
+// // 	tend.push_back( (*it)->tend );
+// // 	peakamp.push_back( (*it)->peakamp );
+// // 	pulsepe.push_back( 0 ); // not yet calculated
+// // 	ttrig[npulses] = (*it)->tstart;
+// // 	tpeak[npulses] = (*it)->tpeak;
+// // 	tend[npulses] = (*it)->tend;
+// // 	peakamp[npulses] = (*it)->peakamp;
+// // 	pulsepe[npulses] = 0.0;
+// 	npulses++;
+// 	delete *it;
+// 	*it = NULL;
+// 	if ( npulses==10 )
+// 	  break;
+//       }
+
     }//end of if pe
     ievent++;
+   
     tree->Fill();
   }//end of while loop
 

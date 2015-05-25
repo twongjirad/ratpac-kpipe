@@ -2,11 +2,12 @@ import os,sys
 
 def gen_macro( outfile, jobid, nevents_per_job ):
     part1 = """/glg4debug/glg4param omit_muon_processes  0.0
-/glg4debug/glg4param omit_hadronic_processes  1.0
+/glg4debug/glg4param omit_hadronic_processes  0.0
 
 /rat/db/set DETECTOR experiment \"kpipe\"
-/rat/db/set DETECTOR geo_file \"kpipe/kpipe2.geo\"
-#/tracking/storeTrajectory 1
+/rat/db/set DETECTOR geo_file \"kpipe/kpipe_wsipms.geo\"
+/tracking/storeTrajectory 1
+/tracking/discardParticleTrajectory opticalphoton
 
 /run/initialize
 

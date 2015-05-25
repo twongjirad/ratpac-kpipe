@@ -10,19 +10,47 @@ RAT_LIBS = -L./../lib -lRATEvent -lrat
 LOCAL_INC = -I. 
 
 
-CFLAGS = -g
+CFLAGS = -g -fPIC
 #CFLAGS = -O3
 CFLAGS += $(ROOT_INCLUDES) $(RAT_INCLUDES) $(LOCAL_INC)
 LDFLAGS += `root-config --ldflags` 
 LDLIBS = $(RAT_LIBS) $(ROOT_LIBS) -lstdc++
 
-all: scrape_data
+all: scrape_data libkptrigger.so analyze_data analyze_crdata
 
 scrape_data.o: scrape_data.cc
 	$(CC) $(CFLAGS) -c -o $@ $^
 
-scrape_data: scrape_data.o
-	$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS)
+kptrigger.o: kptrigger.cc kptrigger.h
+	$(CC) $(CFLAGS) -c -o $@ kptrigger.cc
+
+pmtinfo.o: pmtinfo.cc pmtinfo.hh
+	$(CC) $(CFLAGS) -c -o $@ pmtinfo.cc
+
+gen_dark_noise.o: gen_dark_noise.cc gen_dark_noise.hh
+	$(CC) $(CFLAGS) -c -o $@ gen_dark_noise.cc
+
+prefitz.o: prefitz.cc prefitz.hh
+	$(CC) $(CFLAGS) -c -o $@ prefitz.cc
+
+libkptrigger.so: kptrigger.o pmtinfo.o gen_dark_noise.o prefitz.o
+	$(CC) $(LDFLAGS) -shared -o $@ $^ $(LDLIBS)
+	cp $@ ../lib/
+
+scrape_data: scrape_data.o libkptrigger.so
+	$(CC) $(LDFLAGS) -o $@ scrape_data.o $(LDLIBS) -lkptrigger
+
+analyze_data.o: analyze_data.cc
+	$(CC) $(CFLAGS) -c -o $@ $^
+
+analyze_data: analyze_data.o libkptrigger.so
+	$(CC) $(LDFLAGS) -o $@ analyze_data.o $(LDLIBS) -lkptrigger
+
+analyze_crdata.o: analyze_crdata.cc
+	$(CC) $(CFLAGS) -c -o $@ $^
+
+analyze_crdata: analyze_crdata.o libkptrigger.so
+	$(CC) $(LDFLAGS) -o $@ analyze_crdata.o $(LDLIBS) -lkptrigger
 
 clean: 
-	rm *.o scrape_data
+	rm *.o scrape_data libkptrigger.so analyze_data analyze_crdata

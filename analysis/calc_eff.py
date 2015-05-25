@@ -3,7 +3,8 @@ from ROOT import *
 
 gStyle.SetOptStat(0)
 
-f  = TFile("output_scraped.root")
+#f = TFile("run0_100_scraped.root") # cherenkov+scintillation
+f = TFile("run300_399_scraped.root") # cherenkov+scintillation+reflections
 mcdata = f.Get("mcdata")
 
 tcut = 1000.0
