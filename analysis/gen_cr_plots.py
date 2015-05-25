@@ -8,22 +8,26 @@ elasped_time = 1.17161308983 # seconds
 search_window = 250.0e-9 # ns
 
 #folder="veto_wdark"
-folder="veto_wdark_v2"
+folder="veto_nodark"
+#folder="veto_wdark_v2"
 #folder="veto_nodark_v2"
-#folder="veto_nodark"
 os.system("mkdir -p figs/%s/eps"%(folder))
 
 if folder=="veto_nodark":
-    tf = TFile("crana_merged_nodarknoise_0_1999.root")
-    elasped_time = 1.17161308983
+    #tf = TFile("crana_merged_nodarknoise_0_1999.root")
+    #elasped_time = 1.17161308983
+    tf = TFile("crana_merged_nodarknoise_0_500_v1.root")
+    elasped_time = 0.294
 elif folder=="veto_nodark_v2":
-    tf = TFile("crana_merged_nodarknoise_0_500_V2.root")
-    elasped_time = 0.285
+    tf = TFile("crana_merged_nodarknoise_0_500_v2.root")
+    elasped_time = 0.292
 elif folder=="veto_wdark":
-    tf = TFile("crana_merged_wdarknoise_0_1999.root") # darknoise
+    #tf = TFile("crana_merged_wdarknoise_0_1999.root") # darknoise
+    tf = TFile("crana_merged_wdarknoise_0_500_v1.root") # darknoise
+    elasped_time = 0.292
 elif folder=="veto_wdark_v2":
     tf = TFile("crana_merged_wdarknoise_0_500_v2.root") # darknoise
-    elasped_time = 0.285
+    elasped_time = 0.2926 ##
 else:
     print "wrong file type",folder
     sys.exit(-1)
@@ -32,8 +36,8 @@ mcdata = tf.Get("mcdata")
 scale = 1.0/elasped_time
 pe_scale = 4500.0/8500.0
 mcdata.SetAlias("pescale","4500.0/8500.0")
-mcdata.SetAlias("standard_cuts","npulses==2 && abs(pulsez[0]-pulsez[1])<200.0 && pulsepe[0]*pescale>600 && pulsepe[0]*pescale<1300 && pulsepe[1]*pescale>50.0 && pulsepe[1]*pescale<800.0 && pulse_totodpe*pescale<=0")
-mcdata.SetAlias("nood_cuts",    "npulses==2 && abs(pulsez[0]-pulsez[1])<200.0 && pulsepe[0]*pescale>600 && pulsepe[0]*pescale<1300 && pulsepe[1]*pescale>50.0 && pulsepe[1]*pescale<800.0")
+mcdata.SetAlias("standard_cuts","npulses==2 && abs(pulsez[0]-pulsez[1])<200.0 && pulsepe[0]*pescale>600 && pulsepe[0]*pescale<1300 && pulsepe[1]*pescale>10.0 && pulsepe[1]*pescale<800.0 && pulse_totodpe*pescale<=0")
+mcdata.SetAlias("nood_cuts",    "npulses==2 && abs(pulsez[0]-pulsez[1])<200.0 && pulsepe[0]*pescale>600 && pulsepe[0]*pescale<1300 && pulsepe[1]*pescale>10.0 && pulsepe[1]*pescale<800.0")
 mcdata.SetAlias("nobounds_cuts","pulsepe[0]*pescale>10.0 && pulsepe[1]*pescale>5.0 && abs(pulsez[0]-pulsez[1])<200.0")
 
 
@@ -114,9 +118,10 @@ c1.cd().SetLogy(1)
 c1.cd().SetRightMargin(0.05)
 c1.cd().SetLeftMargin(0.15)
 h_odpe = TH1D("h_odpe",";pe in veto pulses; pe/bin/sec",100,0,1000)
-h_odpe_cuts = TH1D("h_odpe_wcuts",";pe in veto pulses; pe/bin/sec",100,0,1000)
-h_odpe = TH1D("h_odpe",";pe in veto pulses; pe/bin/sec",100,0,1000)
-for h in [h_odpe,h_odpe_cuts]:
+h_odpe_zoom = TH1D("h_odpe_zoom",";pe in veto pulses; pe/bin/sec",50,0,50)
+h_odpe_cuts = TH1D("h_odpe_wcuts",";pe in veto pulses; pe/bin/sec",50,0,50)
+h_pre_odpe = TH1D("h_odpe_pre",";pe in veto pulses; pe/bin/sec",50,0,50)
+for h in [h_odpe,h_odpe_cuts,h_odpe_zoom]:
     h.GetXaxis().SetLabelSize(0.05)
     h.GetXaxis().SetTitleSize(0.06)
     h.GetXaxis().SetTitleOffset(1.2)
@@ -125,6 +130,8 @@ for h in [h_odpe,h_odpe_cuts]:
     h.GetYaxis().SetTitleOffset(1.2)
 mcdata.Draw("pulse_totodpe>>h_odpe_wcuts","nood_cuts")
 mcdata.Draw("pulse_totodpe>>h_odpe","")
+mcdata.Draw("pulse_totodpe>>h_odpe_zoom","")
+mcdata.Draw("predark_odpe>>h_odpe_pre","")
 h_odpe.Scale( scale )
 h_odpe_cuts.Scale( scale )
 h_odpe.Draw()
@@ -134,6 +141,12 @@ c1.SaveAs("figs/%s/eps/h_odpe.eps"%(folder))
 h_odpe_cuts.Draw()
 c1.SaveAs("figs/%s/h_odpe_wcuts.pdf"%(folder))
 c1.SaveAs("figs/%s/eps/h_odpe_wcuts.eps"%(folder))
+h_odpe_zoom.Draw()
+c1.SaveAs("figs/%s/h_odpe_zoom.pdf"%(folder))
+c1.SaveAs("figs/%s/eps/h_odpe_zoom.eps"%(folder))
+h_odpe_pre.Draw()
+c1.SaveAs("figs/%s/h_odpe_predark.pdf"%(folder))
+c1.SaveAs("figs/%s/eps/h_odpe_predark.eps"%(folder))
 c1.cd().SetLogy(0)
 
 # OD Pulse Z

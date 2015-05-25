@@ -198,6 +198,7 @@ int find_trigger( RAT::DS::MC* mc,
         apulse->fStatus = KPPulse::kRising; // start of rising edge (until we find max) 
 	apulse->last_max = ave_window;
 	pulses.push_back( apulse );
+	pulse_expectation.push_back( threshold/windowbins*10 );
         npulses++;
 	//std::cout << "  new pulse!" << std::endl;
       }
@@ -229,7 +230,7 @@ int find_trigger( RAT::DS::MC* mc,
 	  double decay_constant = 0.0;
 	  for (int idcy=0; idcy<n_decay_constants; idcy++)
 	    decay_constant += decay_weights[idcy]*decay_constants_ns[idcy];
-	  //if (  pulse_expectation.at(ipulse) <=threshold*0.5 || ((ibin-windowbins)*nspertic > apulse->tpeak + 10*decay_constant) ) {
+	  //if (  (pulse_expectation.at(ipulse) <= (threshold/float(windowbins)) ) || ((ibin-windowbins)*nspertic > apulse->tpeak + 10*decay_constant) ) {
 	  if ( ((ibin-windowbins)*nspertic > apulse->tpeak + 10*decay_constant) ) {
 	    apulse->tend = (ibin-windowbins)*nspertic;
 	    apulse->fStatus=KPPulse::kDefined;

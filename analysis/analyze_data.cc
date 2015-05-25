@@ -47,11 +47,11 @@ int main( int nargs, char** argv ) {
   int n_decay_constants_veto = 1;
   double decay_weights_veto[1] = { 1.0 };
   double decay_constants_ns_veto[1] = { 50.0 };
-  int trig_version = 2;
-  double sipm_darkrate_hz = 1.0e6;
-  double threshold = 500.0;
-//   double sipm_darkrate_hz = 0.0;
-//   double threshold = 10.0;
+  int trig_version = 1;
+  //double sipm_darkrate_hz = 1.0e6;
+  //double threshold = 500.0;
+  double sipm_darkrate_hz = 0.0;
+  double threshold = 10.0;
   // --------------------------------
   // INPUT CRY VARS
 
@@ -125,7 +125,7 @@ int main( int nargs, char** argv ) {
   int npulses_veto = 0;
   double prefit_z_cm = 0;
   double pulse_totodpe = 0.0;
-  // inner pipe vars
+  // inner pipe varso
   std::vector<double> ttrig;
   std::vector<double> tpeak;
   std::vector<double> peakamp;
@@ -211,7 +211,7 @@ int main( int nargs, char** argv ) {
 
   int ievent = 0;
   int nevents = ds->GetTotal();
-  //nevents = 32;
+  nevents = 50;
 
   KPPulseList pulselist;
   KPPulseList pulselist_veto;
@@ -491,8 +491,9 @@ int main( int nargs, char** argv ) {
 	//std::cout << "vetothresh: " << vetothreshold << std::endl;
       }
 
-      if ( vetothreshold<1.0 )
-	vetoerr = 4.0;
+      if ( vetothreshold<1.0 ) {
+	vetoerr = 5.0;
+      }
       else if ( vetothreshold<5.0 )
 	vetoerr = 7.0*vetothreshold;
       else
@@ -552,6 +553,7 @@ int main( int nargs, char** argv ) {
       }
       pulselist_veto.clear();
     }//hoop loop
+    std::cout << "  Total OD pulse pe: " << pulse_totodpe << " (vs. pre pe " << predark_odpe <<")" << std::endl;
 
     ievent++;
    
