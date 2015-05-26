@@ -49,11 +49,13 @@ int main( int nargs, char** argv ) {
   double decay_weights_veto[1] = { 1.0 };
   double decay_constants_ns_veto[1] = { 50.0 };
   int trig_version = 3;
+  int nod_sipms_per_hoop = 50;
+  int nod_sipms_per_hoop_endcap = 100;
   int nodpmts[4] = {0,1200,1200,5200}; 
   int nodhoops[4] = { 0,102,102,102 };
   const int NPMTS = 90000+nodpmts[trig_version];
 
-  double sipm_darkrate_hz = 1.0e6;
+  double sipm_darkrate_hz = 10.0e6;
   double threshold = 500.0;
 //   double sipm_darkrate_hz = 0.0;
 //   double threshold = 10.0;
@@ -449,7 +451,8 @@ int main( int nargs, char** argv ) {
     assign_pulse_charge( mc, pmtinfofile, pulselist, 
 			 sipm_darkrate_hz,
 			 true, min_hoopid, max_hoopid,
-			 60.0, 90000, false );
+			 60.0, 90000, nod_sipms_per_hoop, nod_sipms_per_hoop_endcap,
+			 false );
     std::cout << "  ID npulses=" << npulses << "  with threshold=" <<  threshold << std::endl;
     for ( KPPulseListIter it=pulselist.begin(); it!=pulselist.end(); it++ )
       std::cout << "    - tstart=" << (*it)->tstart 
@@ -475,7 +478,7 @@ int main( int nargs, char** argv ) {
     double vetothreshold = 10;
     double vetoerr = 1.;
 
-    std::cout << "  OD pulses (expected dark rate=" << 10*(sipm_darkrate_hz*1.0e-9)*window_ns_veto << ")" << std::endl;
+    std::cout << "  OD pulses (expected dark rate=" << nod_sipms_per_hoop*(sipm_darkrate_hz*1.0e-9)*window_ns_veto << ")" << std::endl;
 
     std::vector<double> temp_twfm_veto;
     for (int ihoop=900; ihoop<900+102; ihoop++) {
@@ -490,10 +493,10 @@ int main( int nargs, char** argv ) {
       }
 
       if ( ihoop<1000) {
-	vetothreshold = 10*((ihoop_end-ihoop+1))*(sipm_darkrate_hz*1.0e-9)*window_ns_veto;
+	vetothreshold = nod_sipms_per_hoop*((ihoop_end-ihoop+1))*(sipm_darkrate_hz*1.0e-9)*window_ns_veto; // side
       }
       else {
-	vetothreshold = 100*(sipm_darkrate_hz*1.0e-9)*window_ns_veto;
+	vetothreshold = 100*(sipm_darkrate_hz*1.0e-9)*window_ns_veto; // endcap
 	//std::cout << "vetothresh: " << vetothreshold << std::endl;
       }
 
@@ -504,9 +507,19 @@ int main( int nargs, char** argv ) {
 	  vetoerr = 7.0;
       }
       else if ( vetothreshold<5.0 )
-	vetoerr = 7.0*vetothreshold;
-      else
-	vetoerr = 5.0*sqrt(vetothreshold); // normal
+	vetoerr = 8.0*vetothreshold;
+      else {
+	// big threshold
+	if ( trig_version==3 ) {
+	  if ( ihoop<1000 )
+	    vetoerr = 17.0;
+	  else
+	    vetoerr = 25.0;
+	}
+	else {
+	  vetoerr = 5.0*sqrt(vetothreshold); // normal
+	}
+      }
 
 //       if ( ihoop>=1000 )
 // 	std::cout << "vetothresh: " << vetothreshold << " +/- " << vetoerr << ": " << (sipm_darkrate_hz*1.0e-9)*window_ns_veto << std::endl;
@@ -527,7 +540,8 @@ int main( int nargs, char** argv ) {
 	assign_pulse_charge( mc, pmtinfofile, pulselist_veto,
 			     sipm_darkrate_hz,
 			     true, ihoop, ihoop,
-			     50.0, 90000, true, trig_version );
+			     50.0, 90000, nod_sipms_per_hoop, nod_sipms_per_hoop_endcap,
+			     true, trig_version );
       }
       double odintegral=0.0;
       for ( std::vector<double>::iterator od_it=temp_twfm_veto.begin(); od_it!=temp_twfm_veto.end(); od_it++)
@@ -554,7 +568,7 @@ int main( int nargs, char** argv ) {
 	std::cout << "    -- od hoopid: [" << ihoop << "," << ihoop_end << "]"
 		  << ": z=" << odpos[2] 
 		  << " integral=" << odintegral 
-		  << " dark rate in window=" << 10*((ihoop_end-ihoop+1))*(sipm_darkrate_hz*1.0e-9)*window_ns_veto << " +/- " << vetoerr
+		  << " dark rate in window=" << nod_sipms_per_hoop*((ihoop_end-ihoop+1))*(sipm_darkrate_hz*1.0e-9)*window_ns_veto << " +/- " << vetoerr
 		  << " vetothreshold=" << vetothreshold << " (ave=" << vetothreshold/window_ns_veto << ")"
 		  << " npulses=" << npulses_vetohoop
 		  << std::endl;

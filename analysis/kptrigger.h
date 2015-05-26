@@ -46,6 +46,7 @@ int find_trigger( RAT::DS::MC* mc,
 void assign_pulse_charge( RAT::DS::MC* mc, std::string pmtinfo, KPPulseList& pulselist, 
 			  double darkrate_hz,
 			  bool hoop_cut, double min_hoop, double max_hoop,
-			  double decay_const, int first_od_sipmid, bool veto, int version=2);
+			  double decay_const, int first_od_sipmid, int nod_sipms_per_hoop_side, int nod_sipms_per_hoop_endcap,
+			  bool veto, int version=2);
 
 #endif

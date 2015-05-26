@@ -8,9 +8,10 @@ elasped_time = 1.17161308983 # seconds
 search_window = 250.0e-9 # ns
 
 #folder="veto_wdark"
-folder="veto_nodark"
+#folder="veto_nodark"
 #folder="veto_wdark_v2"
 #folder="veto_nodark_v2"
+folder="veto_wdark_v3"
 os.system("mkdir -p figs/%s/eps"%(folder))
 
 if folder=="veto_nodark":
@@ -28,6 +29,9 @@ elif folder=="veto_wdark":
 elif folder=="veto_wdark_v2":
     tf = TFile("crana_merged_wdarknoise_0_500_v2.root") # darknoise
     elasped_time = 0.2926 ##
+elif folder=="veto_wdark_v3":
+    tf = TFile("crana_merged_wdarknoise_0_1000_v3.root") # darknoise
+    elasped_time = 0.558923725304 ##
 else:
     print "wrong file type",folder
     sys.exit(-1)
@@ -99,7 +103,7 @@ for ncr in ["ncr_muons","ncr_photons","ncr_electrons","ncr_neutrons"]:
 # Michel Pulse PE
 c1.cd().SetRightMargin(0.05)
 c1.cd().SetLeftMargin(0.15)
-h_michel_scale = TH1D("h_michel_scale",";pe in Michel pulse; fraction of events",160,0,800)
+h_michel_scale = TH1D("h_michel_scale",";pe in Michel pulse; fraction of events",50,0,800)
 h_michel_scale.GetXaxis().SetLabelSize(0.05)
 h_michel_scale.GetXaxis().SetTitleSize(0.06)
 h_michel_scale.GetXaxis().SetTitleOffset(1.2)
@@ -118,9 +122,9 @@ c1.cd().SetLogy(1)
 c1.cd().SetRightMargin(0.05)
 c1.cd().SetLeftMargin(0.15)
 h_odpe = TH1D("h_odpe",";pe in veto pulses; pe/bin/sec",100,0,1000)
-h_odpe_zoom = TH1D("h_odpe_zoom",";pe in veto pulses; pe/bin/sec",50,0,50)
-h_odpe_cuts = TH1D("h_odpe_wcuts",";pe in veto pulses; pe/bin/sec",50,0,50)
-h_pre_odpe = TH1D("h_odpe_pre",";pe in veto pulses; pe/bin/sec",50,0,50)
+h_odpe_zoom = TH1D("h_odpe_zoom",";pe in veto pulses; pe/bin/sec",100,0,100)
+h_odpe_cuts = TH1D("h_odpe_wcuts",";pe in veto pulses; pe/bin/sec",100,0,100)
+h_pre_odpe = TH1D("h_odpe_pre",";pe in veto pulses; pe/bin/sec",100,0,500)
 for h in [h_odpe,h_odpe_cuts,h_odpe_zoom]:
     h.GetXaxis().SetLabelSize(0.05)
     h.GetXaxis().SetTitleSize(0.06)
@@ -168,15 +172,16 @@ c1.SaveAs("figs/%s/eps/h_odz.eps"%(folder))
 #print "OD Z: ",h_odz.Integral(), " Hz"
 
 # -- RATE --
-print "Left over cosmic rate (from h_idpe_wcuts): ",h_idpe_wcuts.Integral()," Hz"
+print "Left over cosmic rate (from h_idpe_wcuts): ",h_idpe_wcuts.Integral()," Hz","(",h_idpe_wcuts.GetEntries(),")"
 nmuons_excl = mcdata.GetEntries("standard_cuts && ncr_muons>0 && ncr_photons==0 && ncr_electrons==0 && ncr_neutrons==0")
 nphotons_excl = mcdata.GetEntries("standard_cuts && ncr_muons==0 && ncr_photons>0 && ncr_electrons==0 && ncr_neutrons==0")
 nelectrons_excl = mcdata.GetEntries("standard_cuts && ncr_muons==0 && ncr_photons==0 && ncr_electrons>0 && ncr_neutrons==0")
 nneutrons_excl = mcdata.GetEntries("standard_cuts && ncr_muons==0 && ncr_photons==0 && ncr_electrons==0 && ncr_neutrons>0")
-print "exclusive: muons=",nmuons_excl*scale,
-print "photons=",nphotons_excl*scale,
-print "electrons=",nelectrons_excl*scale,
-print "neutrons=",nneutrons_excl*scale
+tot = nmuons_excl+nphotons_excl+nelectrons_excl+nneutrons_excl
+print "exclusive: muons=",nmuons_excl*scale,"(",nmuons_excl/float(tot),")"
+print "photons=",nphotons_excl*scale,"(",nphotons_excl/float(tot),")"
+print "electrons=",nelectrons_excl*scale,"(",nelectrons_excl/float(tot),")"
+print "neutrons=",nneutrons_excl*scale,"(",nneutrons_excl/float(tot),")"
 nmuons_incl = mcdata.GetEntries("standard_cuts && ncr_muons>0 && (ncr_photons>0 || ncr_electrons>0 || ncr_neutrons>0)")
 print "inclusive: muons=",nmuons_incl*scale
 
