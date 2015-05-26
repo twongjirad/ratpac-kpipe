@@ -1,4 +1,5 @@
 #include <iostream>
+#include <assert.h>
 
 #include "TFile.h"
 #include "TTree.h"
@@ -10,6 +11,7 @@
 #include "gen_dark_noise.hh"
 #include "prefitz.hh"
 #include "pmtinfo.hh"
+
 
 int main( int nargs, char** argv ) {
 
@@ -38,7 +40,6 @@ int main( int nargs, char** argv ) {
 
   RAT::DSReader* ds = new RAT::DSReader( inputfile.c_str() ); 
   int first_od_sipmid = 90000;
-  const int NPMTS = 90000+1200;
   int n_decay_constants = 2;
   double window_ns = 40.0;
   double window_ns_veto = 10.0;
@@ -47,11 +48,16 @@ int main( int nargs, char** argv ) {
   int n_decay_constants_veto = 1;
   double decay_weights_veto[1] = { 1.0 };
   double decay_constants_ns_veto[1] = { 50.0 };
-  int trig_version = 1;
-  //double sipm_darkrate_hz = 1.0e6;
-  //double threshold = 500.0;
-  double sipm_darkrate_hz = 0.0;
-  double threshold = 10.0;
+  int trig_version = 3;
+  int nodpmts[4] = {0,1200,1200,5200}; 
+  int nodhoops[4] = { 0,102,102,102 };
+  const int NPMTS = 90000+nodpmts[trig_version];
+
+  double sipm_darkrate_hz = 1.0e6;
+  double threshold = 500.0;
+//   double sipm_darkrate_hz = 0.0;
+//   double threshold = 10.0;
+
   // --------------------------------
   // INPUT CRY VARS
 
@@ -350,7 +356,7 @@ int main( int nargs, char** argv ) {
       }
       std::cout << "  pre-dark noise ID PEs: " << predark_idpe << " PMTs: " << idpmts << std::endl;
       std::cout << "  pre-dark noise OD PEs: " << predark_odpe << " PMTs: " << odpmts << std::endl;      
-      gen_dark_noise( mc, pmtinfofile, sipm_darkrate_hz, 10000 );
+      gen_dark_noise( mc, pmtinfofile, sipm_darkrate_hz, nodpmts[trig_version], 10000 );
     }
 
     // --------------------------------
@@ -492,7 +498,10 @@ int main( int nargs, char** argv ) {
       }
 
       if ( vetothreshold<1.0 ) {
-	vetoerr = 5.0;
+	if ( trig_version<=2 )
+	  vetoerr = 5.0;
+	else
+	  vetoerr = 7.0;
       }
       else if ( vetothreshold<5.0 )
 	vetoerr = 7.0*vetothreshold;
@@ -525,7 +534,22 @@ int main( int nargs, char** argv ) {
 	odintegral += *od_it; 
       float odpos[3];
       //pmtinfo->getposition( 90000 + (ihoop-900), odpos );
-      pmtinfo->getposition( 90000 + (ihoop-900)*10, odpos );
+      int odpmt_fromhoop;
+      if ( trig_version<=2 ) {
+	odpmt_fromhoop = 90000 + (ihoop-900)*10;
+      }
+      else {
+	if ( ihoop<1000 )
+	  odpmt_fromhoop = 90000 + (ihoop-900)*50;
+	else if ( ihoop==1000 )
+	  odpmt_fromhoop = 95000;
+	else if ( ihoop==1001 )
+	  odpmt_fromhoop = 95100;
+	else
+	  assert(false);
+      }
+
+      pmtinfo->getposition( odpmt_fromhoop, odpos );
       if ( npulses_vetohoop>0 || ( sipm_darkrate_hz==0 && odintegral>0 ) ) {
 	std::cout << "    -- od hoopid: [" << ihoop << "," << ihoop_end << "]"
 		  << ": z=" << odpos[2] 
