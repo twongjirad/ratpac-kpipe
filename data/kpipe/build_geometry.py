@@ -32,13 +32,15 @@ def generate_gdml_file( gdml_filename, pmtinfo_filename, ip_nsipms_per_ring, ip_
             isipm += 1
 
     # OD SIPMS
-    op_string_delta_phi = 180.0/float(op_nstrings)
+    phi_start = -30.0
+    phi_end   = 180 + 30.0
+    op_string_delta_phi = (phi_end-phi_start)/float(op_nstrings)
     op_string_delta_z = pipelength/float(op_nsipms_per_strings-1)
     op_sipmdict = {}
-    for istring_sipm in xrange( 0, op_nsipms_per_strings):
+    for istring_sipm in xrange( 0, op_nsipms_per_strings): # hoops
         z = -0.5*pipelength + istring_sipm*op_string_delta_z
-        for istring in xrange(0, op_nstrings):
-            phi = istring*op_string_delta_phi
+        for istring in xrange(0, op_nstrings): # sipms per hoop
+            phi = phi_start + istring*op_string_delta_phi
             x = (op_radius_cm)*cos( phi*pi/180.0 )
             y = (op_radius_cm)*sin( phi*pi/180.0 )
             x2 = x+(0.1)*cos( phi*pi/180.0 )
@@ -174,7 +176,7 @@ if __name__=="__main__":
     ip_sipms_per_hoop = 100
     ip_hoops = 900
     op_sipms_per_string = 100
-    op_strings = 10
+    op_strings = 50
     pipelength = 8990.0 # cm
     generate_gdml_file( "kpipe.gdml", "PMTINFO.ratdb", ip_sipms_per_hoop, ip_hoops, op_sipms_per_string, op_strings, pipelength )
         
