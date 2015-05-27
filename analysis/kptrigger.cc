@@ -276,7 +276,8 @@ void assign_pulse_charge( RAT::DS::MC* mc, std::string pmtinfofile, KPPulseList&
 			  double darkrate_hz,
 			  bool hoop_cut, double min_hoop, double max_hoop,
 			  double decay_const_ns, 
-			  int first_od_sipmid, bool veto, int version ) {
+			  int first_od_sipmid, int nsipms_per_hoop_side, int nsipms_per_hoop_endcap,
+			  bool veto, int version ) {
   // get pulse info: assigned charge
   if ( pulselist.size()==0 )
     return;
@@ -291,13 +292,13 @@ void assign_pulse_charge( RAT::DS::MC* mc, std::string pmtinfofile, KPPulseList&
       nsipms = 0;
       for (int ihoop=min_hoop; ihoop<=max_hoop; ihoop++) {
 	if ( min_hoop<1000 )
-	  nsipms += 10;  // sides
+	  nsipms += nsipms_per_hoop_side;  // sides
 	else
-	  nsipms += 100; // end caps
+	  nsipms += nsipms_per_hoop_endcap; // end caps
       }
     }
   }
-  
+
   PMTinfo* pmtinfo = PMTinfo::GetPMTinfo( pmtinfofile );
 
   const int npulses = pulselist.size();
