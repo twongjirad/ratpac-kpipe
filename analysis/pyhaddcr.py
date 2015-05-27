@@ -4,7 +4,7 @@ from ROOT import *
 
 pair_list = {}
 
-for p in xrange(0,500):
+for p in xrange(0,2000):
     cryfile = "/net/nudsk0001/d00/scratch/taritree/cry_gen/cry_events_%d.root"%(p)
     anafile = "/net/nudsk0001/d00/scratch/taritree/cr_trg_out/output_cr_analysis_%d.root"%(p)
     rcryfile = TFile( cryfile )
