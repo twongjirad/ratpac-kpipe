@@ -5,12 +5,14 @@
 #include "RAT/DS/MCPhoton.hh"
 #include "RAT/DS/MCPMT.hh"
 
-void gen_dark_noise( RAT::DS::MC* mc, std::string pmtinfofile, double sipm_darkrate, double window_ns ) {
+void gen_dark_noise( RAT::DS::MC* mc, std::string pmtinfofile, double sipm_darkrate, int nodpmts, double window_ns ) {
 
   TRandom3* fRand = new TRandom3( time(NULL) );
   //const int NPMTS = 90000 + 2000; // ID + OD tubes
-  const int NPMTS = 90000 + 1200;
-  bool hashit[NPMTS] = { false };
+  const int NPMTS = 90000 + nodpmts;
+  int* hashit = new int[NPMTS];
+  memset(hashit, 0, sizeof(int)*NPMTS);
+
   double lambda = window_ns*(sipm_darkrate*1.0e-9);
   PMTinfo* pmtinfo = PMTinfo::GetPMTinfo( pmtinfofile );
   std::cout << "load pmt info: " << pmtinfofile << std::endl;
@@ -24,7 +26,7 @@ void gen_dark_noise( RAT::DS::MC* mc, std::string pmtinfofile, double sipm_darkr
     if ( pmt==NULL )
       continue;
     int pmtid = pmt->GetID();
-    hashit[pmtid] = true;
+    hashit[pmtid] = 1;
     npe += pmt->GetMCPhotonCount();
 
     // generate photons
@@ -49,7 +51,7 @@ void gen_dark_noise( RAT::DS::MC* mc, std::string pmtinfofile, double sipm_darkr
 
   // Now add dark hits to pmts without hits
   for (int ipmt=0; ipmt<NPMTS; ipmt++) {
-    if ( hashit[ipmt] )
+    if ( hashit[ipmt]==1 )
       continue;
     
     RAT::DS::MCPMT* pmt = mc->AddNewMCPMT();
@@ -78,5 +80,6 @@ void gen_dark_noise( RAT::DS::MC* mc, std::string pmtinfofile, double sipm_darkr
   mc->SetNumPE( npe );
   mc->SetNumDark( ndark );
 
+  delete [] hashit;
   delete fRand;
 }

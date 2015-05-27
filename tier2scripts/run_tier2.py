@@ -137,7 +137,7 @@ def check_output( outputlists ):
         outputfiles = outputlists[jobid]
         ok = True
         for key,item in outputfiles.items():
-            if os.path.exists( item )==False or os.stat( item ).st_size<5e3:
+            if os.path.exists( item )==False or os.stat( item ).st_size<10e3:
                 print item," not ok"
                 ok = False
         if not ok:
