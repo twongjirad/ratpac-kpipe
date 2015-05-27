@@ -27,7 +27,9 @@ class KPPulse {
   double last_max;
   int nfallingbins;
   double pe;
+  double petrig;
   double z;
+  int ihoop;
   int hits_assigned;
   double pe_dark;
   double pe_adjusted;
@@ -36,6 +38,8 @@ class KPPulse {
 
 typedef std::vector< KPPulse* > KPPulseList;
 typedef std::vector< KPPulse* >::iterator KPPulseListIter;
+void free_pulse_list( KPPulseList& );
+bool is_pulse_in_list( KPPulseList&, KPPulse& );
 
 int find_trigger( RAT::DS::MC* mc, 
 		  double threshold, double window_ns, double darkrate_hz,

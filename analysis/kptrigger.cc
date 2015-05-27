@@ -16,6 +16,22 @@ KPPulse::KPPulse() {
 
 KPPulse::~KPPulse() {}; 
 
+void free_pulse_list( KPPulseList& list ) {
+  for ( KPPulseListIter it=list.begin(); it!=list.end(); it++ ) {
+    delete (*it);
+  }
+  list.clear();
+}
+
+bool is_pulse_in_list( KPPulseList& list, KPPulse& pulse ) {
+  for ( KPPulseListIter it=list.begin(); it!=list.end(); it++ ) {
+    if ( (*it)==&pulse )
+      return true;
+  }
+  return false;
+}
+
+
 int find_trigger( RAT::DS::MC* mc, 
 		  double threshold, double window_ns, double darkrate_hz,
 		  bool hoop_cut, double min_hoop, double max_hoop,
@@ -153,6 +169,7 @@ int find_trigger( RAT::DS::MC* mc,
 	apulse->tstart = (ibin-windowbins)*nspertic;
 	apulse->fStatus = KPPulse::kRising; // start of rising edge (until we find max)
 	apulse->last_max = ave_window;
+	apulse->petrig = ave_window*windowbins;
 	pulses.push_back( apulse );
 	npulses++;
 // 	if ( veto )
@@ -300,6 +317,9 @@ void assign_pulse_charge( RAT::DS::MC* mc, std::string pmtinfofile, KPPulseList&
   }
 
   PMTinfo* pmtinfo = PMTinfo::GetPMTinfo( pmtinfofile );
+  double integration_window = decay_const_ns*2.5;
+  double dark_ave_side = nsipms_per_hoop_side*(darkrate_hz*1.0e-9)*integration_window;
+  double dark_ave_end  = nsipms_per_hoop_endcap*(darkrate_hz*1.0e-9)*integration_window;
 
   const int npulses = pulselist.size();
   double heights[ npulses ];
@@ -397,10 +417,11 @@ void assign_pulse_charge( RAT::DS::MC* mc, std::string pmtinfofile, KPPulseList&
       // make claims on hits based on pulse height
       for ( int ipulse=0; ipulse<npulses; ipulse++ ) {
 	KPPulse* apulse = pulselist.at(ipulse);
-	double ndarkrate = (darkrate_hz*1.0e-9)*nsipms*( apulse->tend-apulse->tstart );
+	double ndarkrate = (darkrate_hz*1.0e-9)*nsipms*( integration_window );
 	apulse->pe_dark = ndarkrate;
-	
-	if ( apulse->tstart<= thit && thit<= apulse->tend ) {
+	double tend = apulse->tend;
+	tend = apulse->tstart+integration_window;
+	if ( apulse->tstart<= thit && thit<= tend ) {
 	  double pheight;
 	  if ( thit<apulse->tpeak ) {
 	    pheight = (apulse->peakamp)/( apulse->tpeak-apulse->tstart )*( thit-apulse->tstart );

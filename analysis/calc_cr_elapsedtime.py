@@ -7,9 +7,9 @@ elaspsed_time_tot = 0
 for p in xrange(0,2000):
     cryfile = "/net/nudsk0001/d00/scratch/taritree/cry_gen/0/cry_events_%d.root"%(p)
     #anafile = "/net/nudsk0001/d00/scratch/taritree/crkpipe_ana_wdarknoise_v2/output_cr_analysis_%04d.root"%(p)
-    #anafile = "/net/nudsk0001/d00/scratch/taritree/crkpipe_ana_wdarknoise/output_cr_analysis_%04d.root"%(p)
+    anafile = "/net/nudsk0001/d00/scratch/taritree/crkpipe_ana_wdarknoise/output_cr_analysis_%04d.root"%(p)
     #anafile = "/net/nudsk0001/d00/scratch/taritree/crkpipe_ana_nodarknoise/output_cr_analysis_%04d.root"%(p)
-    anafile = "/net/nudsk0001/d00/scratch/taritree/crkpipe_ana_wdarknoise_v3/output_cr_analysis_%04d.root"%(p)
+    #anafile = "/net/nudsk0001/d00/scratch/taritree/crkpipe_ana_wdarknoise_v3/output_cr_analysis_%04d.root"%(p)
     rcryfile = TFile( cryfile )
     ranafile = TFile( anafile )
     
