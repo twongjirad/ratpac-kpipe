@@ -1,4 +1,3 @@
-
 #include <iostream>
 #include <assert.h>
 
@@ -43,22 +42,28 @@ int main( int nargs, char** argv ) {
   int first_od_sipmid = 90000;
   int n_decay_constants = 2;
   double window_ns = 40.0;
-  double window_ns_veto = 50.0;
+  double window_ns_veto = 20.0;
   double decay_weights[2] = { 0.6, 0.4 };
   double decay_constants_ns[2] = { 45.0, 67.6 };
   int n_decay_constants_veto = 1;
   double decay_weights_veto[1] = { 1.0 };
   double decay_constants_ns_veto[1] = { 50.0 };
-  int trig_version = 3;
-  int nod_sipms_per_hoop = 50;
+  int trig_version = 4;
+  int nod_sipms_per_hoop = 100;
   int nod_sipms_per_hoop_endcap = 100;
-  int nodpmts[4] = {0,1200,1200,5200}; 
-  int nodhoops[4] = { 0,102,102,102 };
+  int nodpmts[5] = {0,1200,1200,5200,10200}; 
+  int nodhoops[5] = { 0,102,102,102,102 };
   const int NPMTS = 90000+nodpmts[trig_version];
+
+  double veto_threshold1_sidehoops = 37.0;
+  double veto_threshold2_sidehoops = 42.0;
+  double veto_threshold1_endhoops  = 37.0;
+  double veto_threshold2_endhoops  = 42.0;
+  double hoop_coincidence_window_ns = 10.0;
 
   double sipm_darkrate_hz = 10.0e6;
   double threshold = 500.0;
-//   double sipm_darkrate_hz = 0.0;
+  //double sipm_darkrate_hz = 0.0;
 //   double threshold = 10.0;
 
   // --------------------------------
@@ -220,7 +225,7 @@ int main( int nargs, char** argv ) {
 
   int ievent = 0;
   int nevents = ds->GetTotal();
-  //nevents = 20;
+  //nevents = 11;
 
   KPPulseList pulselist;
   KPPulseList pulselist_veto;
@@ -477,46 +482,46 @@ int main( int nargs, char** argv ) {
 
     // ==================================================================================================================
     // VETO: LOOKING FOR SMALLER PULSE, SEARCH, HOOP BY HOOP
-    double vetothreshold_side = 10;
-    double vetothreshold_cap = 10;
-    double vetoerr_side = 1.;
-    double vetoerr_cap = 1.;
     double vetoerr, vetothreshold;
+//     double vetothreshold_side = 10;
+//     double vetothreshold_cap = 10;
+//     double vetoerr_side = 1.;
+//     double vetoerr_cap = 1.;
     
-    // set thresholds
-    vetothreshold_side = nod_sipms_per_hoop*(1.0)*(sipm_darkrate_hz*1.0e-9)*window_ns_veto;
-    vetothreshold_cap  = 100*(sipm_darkrate_hz*1.0e-9)*window_ns_veto;
+//     // set thresholds
+//     vetothreshold_side = nod_sipms_per_hoop*(1.0)*(sipm_darkrate_hz*1.0e-9)*window_ns_veto;
+//     vetothreshold_cap  = 100*(sipm_darkrate_hz*1.0e-9)*window_ns_veto;
 
-    if ( vetothreshold_side<1.0 ) {
-      if ( trig_version<=2 ) {
-	vetoerr_side = 5.0;
-	vetoerr_cap = 9.0;
-      }
-      else {
-	vetoerr_side = 7.0;
-	vetoerr_cap = 12.0;
-      }
-    }
-    else if ( vetothreshold_side<20.0 ) {
-      // medium
-      if ( trig_version==3 ) {
-	//vetoerr_side = 17.0; // 10 ns window
-	vetoerr_side = 11.0; // 10 ns window (low)
-	//vetoerr_side = 9.0; // 5 ns window
+//     if ( vetothreshold_side<1.0 ) {
+//       if ( trig_version<=2 ) {
+// 	vetoerr_side = 5.0;
+// 	vetoerr_cap = 9.0;
+//       }
+//       else {
+// 	vetoerr_side = 7.0;
+// 	vetoerr_cap = 12.0;
+//       }
+//     }
+//     else if ( vetothreshold_side<20.0 ) {
+//       // medium
+//       if ( trig_version==3 ) {
+// 	//vetoerr_side = 17.0; // 10 ns window
+// 	vetoerr_side = 11.0; // 10 ns window (low)
+// 	//vetoerr_side = 9.0; // 5 ns window
        
-	//vetoerr_cap = 25.0; // 10 ns window
-	vetoerr_cap = 17.0; // 5 ns window
-      }
-      else {
-	vetoerr_side = 5.0*sqrt(vetothreshold_side); // normal
-	vetoerr_cap = 5.0*sqrt(vetothreshold_cap); // normal
-      }
-    }
-    else {
-      // big thresh
-      vetoerr_side = 3.5*sqrt(vetothreshold_side); // normal
-      vetoerr_cap = 3.5*sqrt(vetothreshold_cap); // normal
-    }
+// 	//vetoerr_cap = 25.0; // 10 ns window
+// 	vetoerr_cap = 17.0; // 5 ns window
+//       }
+//       else {
+// 	vetoerr_side = 5.0*sqrt(vetothreshold_side); // normal
+// 	vetoerr_cap = 5.0*sqrt(vetothreshold_cap); // normal
+//       }
+//     }
+//     else {
+//       // big thresh
+//       vetoerr_side = 3.5*sqrt(vetothreshold_side); // normal
+//       vetoerr_cap = 3.5*sqrt(vetothreshold_cap); // normal
+//     }
     
 
     std::cout << "  OD pulses (expected dark rate=" << nod_sipms_per_hoop*(sipm_darkrate_hz*1.0e-9)*window_ns_veto << ")" << std::endl;
@@ -537,12 +542,14 @@ int main( int nargs, char** argv ) {
       }
 
       if ( ihoop<1000) {
-	vetothreshold = vetothreshold_side + vetoerr_side;
-	vetoerr = vetoerr_side/4.0;
+	//vetothreshold = vetothreshold_side + vetoerr_side;
+	vetothreshold = veto_threshold1_sidehoops;
+	vetoerr = veto_threshold1_sidehoops;
       }
       else {
-	vetothreshold = vetothreshold_cap + vetoerr_cap;
-	vetoerr = vetoerr_cap/4.0;
+	//vetothreshold = vetothreshold_cap + vetoerr_cap;
+	vetothreshold = veto_threshold1_endhoops;
+	vetoerr = veto_threshold1_endhoops/4.0;
 	//std::cout << "vetothresh: " << vetothreshold << std::endl;
       }
       
@@ -586,7 +593,7 @@ int main( int nargs, char** argv ) {
 
     // Now look for coincident pulses on adjecent hoops (side only): endcaps?
     // save to pulselist_veto
-    std::cout << "final veto pulse filter: single threshold=" << (vetothreshold_side + 1.25*vetoerr_side)  << " " << (vetothreshold_cap + 1.25*vetoerr_cap) << std::endl;
+    std::cout << "final veto pulse filter: single threshold=" << veto_threshold2_sidehoops  << " " << veto_threshold2_endhoops << std::endl;
     for (int ihoop=900; ihoop<1002; ihoop++) {
     
       int ihoop_us = ihoop-1;
@@ -606,15 +613,17 @@ int main( int nargs, char** argv ) {
 	  continue; // skip this
 
 	if ( ihoop<1000 ) {
-	  vetothreshold = vetothreshold_side;
-	  vetoerr = vetoerr_side;
+	  //vetothreshold = vetothreshold_side;
+	  vetothreshold = veto_threshold2_sidehoops;
+	  //vetoerr = vetoerr_side;
 	}
 	else {
-	  vetothreshold = vetothreshold_cap;
-	  vetoerr = vetoerr_cap;
+	  //vetothreshold = vetothreshold_cap;
+	  //vetoerr = vetoerr_cap;
+	  vetothreshold = veto_threshold2_endhoops;
 	}
 
-	if ( (*it)->peakamp*window_ns_veto > (vetothreshold + 1.5*vetoerr) ) {// auto accept
+	if ( (*it)->peakamp*window_ns_veto > (vetothreshold) ) {// auto accept
 	  std::cout << "  single large veto pulse: ihoop=" << ihoop
 		    << "  t1=" << (*it)->tstart
 		    << "  pe1=" << (*it)->pe_adjusted
@@ -631,7 +640,7 @@ int main( int nargs, char** argv ) {
 
 	//std::cout << " testing veto pulse at hoop=" << ihoop << " and t=[" << (*it)->tstart << "," << (*it)->tend << "]" << std::endl;
 	for ( KPPulseListIter it_us=hoop_pulse_list[ihoop_us]->begin(); it_us!=hoop_pulse_list[ihoop_us]->end(); it_us++ ) {
-	  if ( fabs( (*it)->tstart-(*it_us)->tstart )<30.0 ) {
+	  if ( fabs( (*it)->tstart-(*it_us)->tstart )<hoop_coincidence_window_ns ) {
 	    // coincident pulses!
 	    std::cout << "  coincident veto pulse: ihoop(k-1)=" << ihoop_us << " and " << ihoop << ": " 
 		      << "  t1=" << (*it)->tstart << " t2=" << (*it_us)->tstart
@@ -665,7 +674,7 @@ int main( int nargs, char** argv ) {
       if ( trig_version<=2 ) {
 	odpmt_fromhoop = 90000 + (ihoop-900)*10;
       }
-      else {
+      else if ( trig_version==3 ) {
 	if ( ihoop<1000 )
 	  odpmt_fromhoop = 90000 + (ihoop-900)*50;
 	else if ( ihoop==1000 )
@@ -675,6 +684,18 @@ int main( int nargs, char** argv ) {
 	else
 	  assert(false);
       }
+      else if ( trig_version==4 ) {
+	if ( ihoop<1000 )
+	  odpmt_fromhoop = 90000 + (ihoop-900)*100;
+	else if ( ihoop==1000 )
+	  odpmt_fromhoop = 100000;
+	else if ( ihoop==1001 )
+	  odpmt_fromhoop = 100100;
+	else
+	  assert(false);
+      }
+      else
+	assert(false);
 
       pmtinfo->getposition( odpmt_fromhoop, odpos );
       //if ( npulses_vetohoop>0 || ( sipm_darkrate_hz==0 && odintegral>0 ) ) {
@@ -694,7 +715,7 @@ int main( int nargs, char** argv ) {
 		<< " petrig=" << pulselist_veto.at(iod)->petrig
 		<< " peakamp=" << pulselist_veto.at(iod)->peakamp*window_ns_veto
 		<< std::endl;
-      pulse_totodpe += pulselist_veto.at(iod)->pe_adjusted;
+      //pulse_totodpe += pulselist_veto.at(iod)->pe_adjusted;
       pulsepe_veto.push_back( pulselist_veto.at(iod)->pe_adjusted );
       pulsez_veto.push_back(  pulselist_veto.at(iod)->z );
       ttrig_veto.push_back(  pulselist_veto.at(iod)->tstart );

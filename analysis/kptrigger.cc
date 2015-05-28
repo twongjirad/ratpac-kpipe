@@ -117,6 +117,16 @@ int find_trigger( RAT::DS::MC* mc,
 	    hoopid = 1001;     // endcap
 	}	
       }
+      else if ( version==4 ) {
+	if ( pmtid<first_od_sipmid+10000 )
+	  hoopid = 900 + (pmtid-first_od_sipmid)/100; // 0-999 inclusive are radial
+	else {
+	  if (pmtid<first_od_sipmid+10100)
+	    hoopid = 1000;     // endcap
+	  else
+	    hoopid = 1001;     // endcap
+	}	
+      }
       else 
 	assert(false);
       
@@ -387,6 +397,16 @@ void assign_pulse_charge( RAT::DS::MC* mc, std::string pmtinfofile, KPPulseList&
 	  hoopid = 900 + (pmtid-first_od_sipmid)/50; // 0-999 inclusive are radial
 	else {
 	  if (pmtid<first_od_sipmid+5100)
+	    hoopid = 1000;     // endcap
+	  else
+	    hoopid = 1001;     // endcap
+	}	
+      }
+      else if ( version==4 ) {
+	if ( pmtid<first_od_sipmid+10000 )
+	  hoopid = 900 + (pmtid-first_od_sipmid)/100; // 0-999 inclusive are radial
+	else {
+	  if (pmtid<first_od_sipmid+10100)
 	    hoopid = 1000;     // endcap
 	  else
 	    hoopid = 1001;     // endcap
