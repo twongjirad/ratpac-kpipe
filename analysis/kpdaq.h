@@ -28,12 +28,13 @@ class KPDAQ {
 
   int getNIDChannels() { return fNIDChannels; };
   int getNODChannels() { return fNODChannels; };
-  //void getChannelPos( double* pos );
+  void getChannelPos( int ich, float* pos );
 
   const std::vector< double >& getIDwfm( int ch ) const { return fID_wfm.at(ch); };
   const std::vector< double >& getODwfm( int ch ) const { return fOD_wfm.at(ch); };
   double getWindowSum( int ch, double start, double end );
   void copyWaveforms( std::vector<double>& copy, int chstart, int chend ) const;
+  void addWaveform( std::vector<double>& wfm, int ch, double tstart, double tend, double offset = 0.0 ) const;
 
   void processEvent( RAT::DS::MC& mc );
   

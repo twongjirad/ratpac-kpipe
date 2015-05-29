@@ -41,7 +41,7 @@ int main( int nargs, char** argv ) {
   RAT::DSReader* ds = new RAT::DSReader( inputfile.c_str() ); 
   int first_od_sipmid = 90000;
   int n_decay_constants = 2;
-  double window_ns = 5.0;
+  double window_ns = 50.0;
   double window_ns_veto = 10.0;
   double decay_weights[2] = { 0.6, 0.4 };
   double decay_constants_ns[2] = { 45.0, 67.6 };
@@ -63,16 +63,17 @@ int main( int nargs, char** argv ) {
   double hoop_coincidence_window_ns = 10.0;
 
   int num_id_hoop_neighbors = 4;
+  int num_id_hoop_sum = 100;
 
-  double sipm_darkrate_hz = 10.0e6;
+  double sipm_darkrate_hz = 1.6e6;
   double threshold = 500.0;
   //double sipm_darkrate_hz = 0.0;
-//   double threshold = 10.0;
+  //double threshold = 10.0;
 
 
   // --------------------------------
   // Build DAQ
-  KPDAQ daq( 90, nodsipms_per_hoop[trig_version], 1000, nodhoops[trig_version], 1, trig_version, pmtinfofile );
+  KPDAQ daq( 100, nodsipms_per_hoop[trig_version], 900, nodhoops[trig_version], 1, trig_version, pmtinfofile );
 
   // --------------------------------
   // INPUT CRY VARS
@@ -231,7 +232,7 @@ int main( int nargs, char** argv ) {
   }
 
 
-  int ievent = 0;
+  int ievent = 5;
   int nevents = ds->GetTotal();
   nevents = 20;
 
@@ -442,6 +443,7 @@ int main( int nargs, char** argv ) {
 
     // --------------------------------
     // Find Z of the first pulse
+    /*
     int maxhoop = 0;
     prefit_z_cm = calc_prefitz( mc, pmtinfofile, sipm_darkrate_hz, 20.0, 90000, 2000, maxhoop );
     std::cout << "  prefit z: " << prefit_z_cm << " maxhoop=" << maxhoop << std::endl;
@@ -457,31 +459,134 @@ int main( int nargs, char** argv ) {
     int min_hoopid_search = maxhoop-num_id_hoop_neighbors;
     int max_hoopid_search = maxhoop+num_id_hoop_neighbors;
 
-    double expected_darkrate = (double( max_hoopid_search - min_hoopid_search + 1)*100)*(sipm_darkrate_hz*1.0e-9)*window_ns;
-    double sig_darkrate = sqrt( expected_darkrate );
-    threshold = expected_darkrate + 5.0*sig_darkrate;
+
     
     daq.copyWaveforms( twfm, maxhoop, maxhoop );
-    
+    */
 
     // --------------------------------
     // TRIGGER
     std::cout << "  -- pulse finder -- " << std::endl;
+    int ncoinhoops = 2;
+    int nhoops_group = 2*int(ncoinhoops/2)+1;
+    double expected_darkrate = 100*(sipm_darkrate_hz*1.0e-9)*window_ns*( nhoops_group ); // in channel
+    double sig_darkrate = sqrt( expected_darkrate );
+    //if ( expected_darkrate>10.0 )
+    threshold = expected_darkrate + 5.0*sig_darkrate;
+//     else
+//       threshold = 10;
+    if ( sipm_darkrate_hz== 0 )
+      threshold = 0.5;
+    std::cout << "Total hoops in a group that are searched: " << 
+    std::cout << "Expected Dark Rate: " << expected_darkrate << " +/-  " << sig_darkrate << std::endl;
+    std::cout << "Threshold set to " << threshold << std::endl;
 
     // INNER PIPE
-    npulses = find_trigger( mc, 
-			    threshold, window_ns, sipm_darkrate_hz,
-			    true, min_hoopid_search, max_hoopid_search,
-			    false, 0, 0,
-			    n_decay_constants, decay_weights, decay_constants_ns,
-			    pulselist, 90000, false, twfm );
+    //  1) find pulses for all channels
+    //  2) assemble pulses into one master waveform.  Run pulse finder again.
+    std::map< int, KPPulseList* > idch_pulse_list;
+    std::vector<double> tmp_twfm_id(10000, 0.0);
 
-    assign_pulse_charge( mc, pmtinfofile, pulselist, 
-			 sipm_darkrate_hz,
-			 true, min_hoopid, max_hoopid,
-			 60.0, 90000, nod_sipms_per_hoop, nod_sipms_per_hoop_endcap,
-			 false );
-    std::cout << "  ID npulses=" << npulses << "  with threshold=" <<  threshold << " ( exp. dark rate=" << expected_darkrate << " +/- " << sig_darkrate << ")" << std::endl;
+    int maxhoop = -1;
+    double maxhoop_pe = 0;
+    int npre_pulses = 0;
+    for (int ich=1; ich<daq.getNIDChannels()-1; ich ++) {
+      idch_pulse_list[ich] = new KPPulseList;
+      int up_ch = ich-ncoinhoops/2;
+      int ds_ch = ich+ncoinhoops/2;
+      if ( up_ch<0 )
+	up_ch = 0;
+      if ( ds_ch >=daq.getNIDChannels() )
+	ds_ch = daq.getNIDChannels()-1;
+      int ch_npulses = find_trigger2( daq, 
+				      threshold, window_ns, sipm_darkrate_hz,
+				      up_ch, ds_ch,
+				      false, 0, 0,
+				      n_decay_constants, decay_weights, decay_constants_ns,
+				      *(idch_pulse_list[ich]), 90000, false, tmp_twfm_id, trig_version );
+
+      std::cout << "[ channel " << ich << "]: ";
+      std::cout << " npulses=" << ch_npulses;
+      double chpe = 0.0;
+      int ich_p = 1;
+      for ( KPPulseListIter itp=idch_pulse_list[ich]->begin(); itp!=idch_pulse_list[ich]->end(); itp++ ) {
+	double ppe = 0;
+	double ppe_dark = 0;
+	std::cout << " (" << ich_p << ") ";
+	int iend = (*itp)->tstart+window_ns;
+	if ( iend>=10000 )
+	  iend = 9999;
+	for (int ibin= (*itp)->tstart; ibin< iend; ibin++ ) {
+	  ppe += tmp_twfm_id.at( ibin ); 
+	  ppe_dark += (sipm_darkrate_hz*1.0e-9)*100*ncoinhoops;
+	}
+	chpe += ppe-ppe_dark;
+	std::cout << " tpeak=" << (*itp)->tpeak << " pe=" << ppe-ppe_dark  << " (dark=" << ppe_dark << "+/-" << sqrt(ppe_dark) << "), ";
+	ich_p++;
+      }
+
+      npre_pulses += ch_npulses;
+      std::cout << ": total channel pe=" << chpe << std::endl;
+    }
+    std::cout << "Number of channel pulses: " << npre_pulses << std::endl;
+
+    twfm.assign(10000, 0.0);
+    for ( std::map< int, KPPulseList* >::iterator it=idch_pulse_list.begin(); it!=idch_pulse_list.end(); it++ ) {
+      int ich = (*it).first;
+      double chpe = 0.0;
+      if ( (*it).second->size()>0 ) {
+	for ( KPPulseListIter pit=(*it).second->begin(); pit!=(*it).second->end(); pit++ ) {
+
+	  // require neighboor cooincidence
+	  bool fill = false;
+	  int jch = ich-1;
+	  if ( ich==0 )
+	    jch = ich+1;
+	  
+// 	  KPPulseList* us_pulses = idch_pulse_list[jch];
+// 	  for (int jpulse=0; jpulse<us_pulses->size(); jpulse++) {
+// 	    if ( fabs( us_pulses->at(jpulse)->tstart-(*pit)->tstart )<5.0 ) {
+// 	      fill = true;
+// 	      break;
+// 	    }
+// 	  }
+	  fill = true;
+	  
+	  if ( fill ) {
+	    daq.addWaveform( twfm, ich, (*pit)->tstart, (*pit)->tend, sipm_darkrate_hz*1.0e-9*100  );
+	    if ( (*pit)->peakamp > maxhoop_pe ) {
+	      maxhoop_pe = (*pit)->peakamp;
+	      maxhoop = ich;
+	    }
+	  }
+	}//end of loop over channel pulses
+      }//if pulses found
+    }//end of loop over channels and pulselist
+
+
+    // now search again
+    npulses = find_trigger3( twfm,
+			     threshold, 1.5*window_ns, sipm_darkrate_hz,
+			     false, 0, 0,
+			     n_decay_constants, decay_weights, decay_constants_ns,
+			     pulselist, 90000, false, trig_version );
+    if ( npulses>0 ) {
+      int min_hoopid = maxhoop - num_id_hoop_sum;
+      int max_hoopid = maxhoop + num_id_hoop_sum;
+      if ( min_hoopid<0 ) min_hoopid = 0;
+      if ( max_hoopid>=daq.getNIDChannels() ) max_hoopid = daq.getNIDChannels()-1;
+
+      assign_pulse_charge( mc, pmtinfofile, pulselist, 
+			   sipm_darkrate_hz,
+			   true, min_hoopid, max_hoopid,
+			   60.0, 90000, nod_sipms_per_hoop, nod_sipms_per_hoop_endcap,
+			   false );
+    }
+    float maxhoop_pos[3] = { 0 };
+    if ( npulses>0 )
+      daq.getChannelPos( maxhoop, &maxhoop_pos[0] );
+    std::cout << "  ID npulses=" << npulses << "  with threshold=" <<  threshold << " ( exp. dark rate=" << expected_darkrate << " +/- " << sig_darkrate << ") maxhoop=" << maxhoop << " maxhoop[z]=" << maxhoop_pos[2] << std::endl;
+    
     for ( KPPulseListIter it=pulselist.begin(); it!=pulselist.end(); it++ )
       std::cout << "    - tstart=" << (*it)->tstart 
 		<< " tpeak=" << (*it)->tpeak 

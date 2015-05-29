@@ -508,14 +508,11 @@ void assign_pulse_charge( RAT::DS::MC* mc, std::string pmtinfofile, KPPulseList&
 }
 
 
-
-int find_trigger2( const KPDAQ& daq,
+int find_trigger3( std::vector<double>& tbins,
 		   double threshold, double window_ns, double darkrate_hz,
-		   int chstart, int chend,
 		   bool time_cut, double min_time, double max_time,
 		   int n_decay_constants, double decay_weights[], double decay_constants_ns[], 
-		   KPPulseList& pulses, int first_od_sipmid, bool veto, std::vector<double>& tbins,
-		   int version ) {
+		   KPPulseList& pulses, int first_od_sipmid, bool veto, int version ) {
 
   // (1) bin hits out to 20 microseconds.
   // (2) scan until a bin over threshold
@@ -530,14 +527,6 @@ int find_trigger2( const KPDAQ& daq,
   bool use_ave = true;
   int windowbins = (int)window_ns/nspertic;
   if ( windowbins==0 ) windowbins++;
-  double darkrate_window = window_ns*(1.0e-9*darkrate_hz)*(chend-chstart+1); // 1 MHz dark rate * Window  * NSiPMs
-
-  // ------------------------------------------------
-  // Fill time bins
-  if ( tbins.size()!=nbins )
-    tbins.resize(nbins);
-  tbins.assign( nbins, 0.0 );
-  daq.copyWaveforms( tbins, chstart, chend );
 
   // ------------------------------------------------
   // Find peaks by scanning
@@ -679,5 +668,28 @@ int find_trigger2( const KPDAQ& daq,
     }
   }
 
+  return npulses;
+}
+
+int find_trigger2( const KPDAQ& daq,
+		   double threshold, double window_ns, double darkrate_hz,
+		   int chstart, int chend,
+		   bool time_cut, double min_time, double max_time,
+		   int n_decay_constants, double decay_weights[], double decay_constants_ns[], 
+		   KPPulseList& pulses, int first_od_sipmid, bool veto, std::vector<double>& tbins,
+		   int version ) {
+  
+  if ( tbins.size()!=10000 ) {
+    tbins.resize( 10000 );
+    tbins.assign( 10000, 0 );
+  }
+
+  daq.copyWaveforms( tbins, chstart, chend );
+
+  int npulses = find_trigger3( tbins,
+			       threshold, window_ns, darkrate_hz,
+			       time_cut, min_time, max_time,
+			       n_decay_constants, decay_weights, decay_constants_ns, 
+			       pulses, first_od_sipmid, veto, version );
   return npulses;
 }

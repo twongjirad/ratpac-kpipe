@@ -138,7 +138,10 @@ void KPDAQ::processEvent(  RAT::DS::MC& mc ) {
 
   // fill wfms
   int removedpe = 0;
-  for ( int ipmt=0; ipmt<(fNIDSiPMs+fNODSiPMs); ipmt++ ) {
+  int npmts = mc.GetMCPMTCount();
+  //npmts = (fNIDSiPMs+fNODSiPMs);
+  std::cout << "npmts: " << npmts << std::endl;
+  for ( int ipmt=0; ipmt<npmts; ipmt++ ) {
 
     RAT::DS::MCPMT* pmt = mc.GetMCPMT( ipmt );
 
@@ -149,16 +152,12 @@ void KPDAQ::processEvent(  RAT::DS::MC& mc ) {
     int pmtid = 0;
     int hoopid = 0;
     int chnum = 0;
-    try {
-      nhits = pmt->GetMCPhotonCount();
-      pmtid = pmt->GetID();
-      hoopid = getHoopIndexFromPMTID( pmtid );
-      chnum = getChannelIndex( hoopid, pmtid );
-    }
-    catch (...) {
-      std::cout << "oops: " << pmtid << " " << hoopid << " " << chnum << std::endl;
-      assert(false);
-    }
+
+    nhits = pmt->GetMCPhotonCount();
+    pmtid = pmt->GetID();
+    hoopid = getHoopIndexFromPMTID( pmtid );
+    chnum = getChannelIndex( hoopid, pmtid );
+
   
     for (int ihit=0; ihit<nhits; ihit++) {
       RAT::DS::MCPhoton* hit = pmt->GetMCPhoton( ihit );
@@ -225,4 +224,25 @@ void KPDAQ::copyWaveforms( std::vector<double>& copy, int chstart, int chend ) c
 	copy.at(ibin) += fOD_wfm.at(ich).at(ibin);
     }
   }
+}
+
+void KPDAQ::addWaveform( std::vector<double>& wfm, int ich, double tstart, double tend, double offset ) const {
+  int istart = (int)tstart;
+  int iend   = (int)tend;
+  if ( iend>=fNbins ) iend = fNbins-1;
+  for ( int ibin=istart; ibin<=iend; ibin++ ) {
+    if ( ich<fNIDChannels )
+      wfm.at(ibin) +=  fID_wfm.at(ich).at(ibin)-offset;
+    else
+      wfm.at(ibin) += fOD_wfm.at(ich).at(ibin)-offset;
+  }  
+}
+
+void KPDAQ::getChannelPos( int ich, float* pos ) {
+  int pmtid;
+  if ( ich<fNIDChannels ) {
+    pmtid = ich*fNIDSiPMs_perhoop + int(0.5*fNIDSiPMs_perhoop);
+    fpmtinfo->getposition( pmtid, pos );
+  }
+
 }
