@@ -17,5 +17,7 @@ src/core/config.hh
 .project
 .pydevproject
 .settings
-
+*.o
+*.so
+analysis/*.root
 *~

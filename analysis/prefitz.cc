@@ -11,7 +11,7 @@ double calc_prefitz( RAT::DS::MC* mc, std::string pmtinfofile, double darkrate_h
   double hoop_totals[1000] = { 0 };
   double hoop_totals_adjusted[1000] = { 0 };
   double hoop_z[1000] = { 0.0 };
-  double ndark_expt = darkrate_hz*1.0e-9*window_ns;
+  double ndark_expt_persipm = darkrate_hz*1.0e-9*window_ns;
 
   for (int ipmt=0; ipmt<mc->GetMCPMTCount(); ipmt++) {
 
@@ -33,9 +33,9 @@ double calc_prefitz( RAT::DS::MC* mc, std::string pmtinfofile, double darkrate_h
     float pmtpos[3];
     pmtinfo->getposition( pmtid, pmtpos );
     
-    hoop_z[hoopid] = pmtpos[2]/100.0;
+    hoop_z[hoopid] = pmtpos[2];
     hoop_totals[hoopid] += npe;
-    hoop_totals_adjusted[hoopid] += npe - (ndark_expt);
+    hoop_totals_adjusted[hoopid] += npe - (ndark_expt_persipm);
 
   }
 

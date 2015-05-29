@@ -3,6 +3,8 @@
 #include <ctime>
 #include <assert.h>
 #include "pmtinfo.hh"
+#include "TRandom3.h"
+
 
 KPPulse::KPPulse() {
   nfallingbins = 0;
@@ -15,6 +17,22 @@ KPPulse::KPPulse() {
 }
 
 KPPulse::~KPPulse() {}; 
+
+void free_pulse_list( KPPulseList& list ) {
+  for ( KPPulseListIter it=list.begin(); it!=list.end(); it++ ) {
+    delete (*it);
+  }
+  list.clear();
+}
+
+bool is_pulse_in_list( KPPulseList& list, KPPulse& pulse ) {
+  for ( KPPulseListIter it=list.begin(); it!=list.end(); it++ ) {
+    if ( (*it)==&pulse )
+      return true;
+  }
+  return false;
+}
+
 
 int find_trigger( RAT::DS::MC* mc, 
 		  double threshold, double window_ns, double darkrate_hz,
@@ -32,6 +50,8 @@ int find_trigger( RAT::DS::MC* mc,
   if ( mc->GetNumPE()==0 )
     return 0;
 
+  TRandom3 rand( time(NULL) );
+
   // ------------------------------------------------
   // INTERNAL PARAMETERS
   const int nbins = 10000;
@@ -42,13 +62,12 @@ int find_trigger( RAT::DS::MC* mc,
   memset( tbins, 0, sizeof(double)*nbins );
   int windowbins = (int)window_ns/nspertic;
   if ( windowbins==0 ) windowbins++;
-  double darkrate_window = window_ns*(1.0e-9*darkrate_hz)*(90000); // 1 MHz dark rate * Window  * NSiPMs
-  if ( hoop_cut )
-    darkrate_window = window_ns*(1.0e-9*darkrate_hz)*(max_hoop-min_hoop); // 1 MHz dark rate * Window  * NSiPMs
+  double darkrate_window = window_ns*(1.0e-9*darkrate_hz)*(max_hoop-min_hoop+1); // 1 MHz dark rate * Window  * NSiPMs
   hitwfm.resize( nbins );
 
   // ------------------------------------------------
   // Fill time bins
+  int removedpe = 0;
   int npmts = mc->GetMCPMTCount();
   for ( int ipmt=0; ipmt<npmts; ipmt++ ) {
 
@@ -91,6 +110,26 @@ int find_trigger( RAT::DS::MC* mc,
 	    hoopid = 1001;     // endcap
 	}
       }
+      else if ( version==3 ) {
+	if ( pmtid<first_od_sipmid+5000 )
+	  hoopid = 900 + (pmtid-first_od_sipmid)/50; // 0-999 inclusive are radial
+	else {
+	  if (pmtid<first_od_sipmid+5100)
+	    hoopid = 1000;     // endcap
+	  else
+	    hoopid = 1001;     // endcap
+	}	
+      }
+      else if ( version==4 ) {
+	if ( pmtid<first_od_sipmid+10000 )
+	  hoopid = 900 + (pmtid-first_od_sipmid)/100; // 0-999 inclusive are radial
+	else {
+	  if (pmtid<first_od_sipmid+10100)
+	    hoopid = 1000;     // endcap
+	  else
+	    hoopid = 1001;     // endcap
+	}	
+      }
       else 
 	assert(false);
       
@@ -101,6 +140,14 @@ int find_trigger( RAT::DS::MC* mc,
 
     for (int ihit=0; ihit<nhits; ihit++) {
       RAT::DS::MCPhoton* hit = pmt->GetMCPhoton( ihit );
+      if ( !hit->IsDarkHit() ) {
+	// reduce scintillator
+	if ( rand.Uniform()>0.5 ) {
+	  removedpe++;
+	  continue;
+	}
+      }
+
       double thit = hit->GetHitTime();
       if ( time_cut && (thit<min_time || thit>max_time) )
 	continue;
@@ -109,6 +156,7 @@ int find_trigger( RAT::DS::MC* mc,
 	tbins[ibin]++;
     }
   }//end of pmt loop
+  //std::cout << "removed pe: " << removedpe << std::endl;
 
   // ------------------------------------------------
   // Find peaks by scanning
@@ -143,6 +191,7 @@ int find_trigger( RAT::DS::MC* mc,
 	apulse->tstart = (ibin-windowbins)*nspertic;
 	apulse->fStatus = KPPulse::kRising; // start of rising edge (until we find max)
 	apulse->last_max = ave_window;
+	apulse->petrig = ave_window*windowbins;
 	pulses.push_back( apulse );
 	npulses++;
 // 	if ( veto )
@@ -266,7 +315,8 @@ void assign_pulse_charge( RAT::DS::MC* mc, std::string pmtinfofile, KPPulseList&
 			  double darkrate_hz,
 			  bool hoop_cut, double min_hoop, double max_hoop,
 			  double decay_const_ns, 
-			  int first_od_sipmid, bool veto, int version ) {
+			  int first_od_sipmid, int nsipms_per_hoop_side, int nsipms_per_hoop_endcap,
+			  bool veto, int version ) {
   // get pulse info: assigned charge
   if ( pulselist.size()==0 )
     return;
@@ -281,14 +331,17 @@ void assign_pulse_charge( RAT::DS::MC* mc, std::string pmtinfofile, KPPulseList&
       nsipms = 0;
       for (int ihoop=min_hoop; ihoop<=max_hoop; ihoop++) {
 	if ( min_hoop<1000 )
-	  nsipms += 10;  // sides
+	  nsipms += nsipms_per_hoop_side;  // sides
 	else
-	  nsipms += 100; // end caps
+	  nsipms += nsipms_per_hoop_endcap; // end caps
       }
     }
   }
-  
+
   PMTinfo* pmtinfo = PMTinfo::GetPMTinfo( pmtinfofile );
+  double integration_window = decay_const_ns*2.5;
+  double dark_ave_side = nsipms_per_hoop_side*(darkrate_hz*1.0e-9)*integration_window;
+  double dark_ave_end  = nsipms_per_hoop_endcap*(darkrate_hz*1.0e-9)*integration_window;
 
   const int npulses = pulselist.size();
   double heights[ npulses ];
@@ -351,6 +404,26 @@ void assign_pulse_charge( RAT::DS::MC* mc, std::string pmtinfofile, KPPulseList&
 	    hoopid = 1001;     // endcap
 	}
       }
+      else if ( version==3 ) {
+	if ( pmtid<first_od_sipmid+5000 )
+	  hoopid = 900 + (pmtid-first_od_sipmid)/50; // 0-999 inclusive are radial
+	else {
+	  if (pmtid<first_od_sipmid+5100)
+	    hoopid = 1000;     // endcap
+	  else
+	    hoopid = 1001;     // endcap
+	}	
+      }
+      else if ( version==4 ) {
+	if ( pmtid<first_od_sipmid+10000 )
+	  hoopid = 900 + (pmtid-first_od_sipmid)/100; // 0-999 inclusive are radial
+	else {
+	  if (pmtid<first_od_sipmid+10100)
+	    hoopid = 1000;     // endcap
+	  else
+	    hoopid = 1001;     // endcap
+	}	
+      }
       else {
 	assert(false);
       }
@@ -376,10 +449,11 @@ void assign_pulse_charge( RAT::DS::MC* mc, std::string pmtinfofile, KPPulseList&
       // make claims on hits based on pulse height
       for ( int ipulse=0; ipulse<npulses; ipulse++ ) {
 	KPPulse* apulse = pulselist.at(ipulse);
-	double ndarkrate = (darkrate_hz*1.0e-9)*nsipms*( apulse->tend-apulse->tstart );
+	double ndarkrate = (darkrate_hz*1.0e-9)*nsipms*( integration_window );
 	apulse->pe_dark = ndarkrate;
-	
-	if ( apulse->tstart<= thit && thit<= apulse->tend ) {
+	double tend = apulse->tend;
+	tend = apulse->tstart+integration_window;
+	if ( apulse->tstart<= thit && thit<= tend ) {
 	  double pheight;
 	  if ( thit<apulse->tpeak ) {
 	    pheight = (apulse->peakamp)/( apulse->tpeak-apulse->tstart )*( thit-apulse->tstart );
@@ -431,4 +505,191 @@ void assign_pulse_charge( RAT::DS::MC* mc, std::string pmtinfofile, KPPulseList&
     apulse->pe_adjusted = apulse->pe - apulse->pe_dark;
   }
 
+}
+
+
+int find_trigger3( std::vector<double>& tbins,
+		   double threshold, double window_ns, double darkrate_hz,
+		   bool time_cut, double min_time, double max_time,
+		   int n_decay_constants, double decay_weights[], double decay_constants_ns[], 
+		   KPPulseList& pulses, int first_od_sipmid, bool veto, int version ) {
+
+  // (1) bin hits out to 20 microseconds.
+  // (2) scan until a bin over threshold
+  // (3) scan until max found: using averaging (-n,+n) bins
+  // (4) adjust threshold level using maxamp*exp(-t/(t0))
+
+  // ------------------------------------------------
+  // INTERNAL PARAMETERS
+  const int nbins = 10000;
+  const double nspertic = 1.0;
+  const int NFALLING = 3;
+  bool use_ave = true;
+  int windowbins = (int)window_ns/nspertic;
+  if ( windowbins==0 ) windowbins++;
+
+  // ------------------------------------------------
+  // Find peaks by scanning
+  int npulses = 0;
+  for (int ibin=windowbins; ibin<nbins; ibin++ ) {
+    
+    // count number active pulses
+    int nactive = 0;
+    for ( KPPulseListIter it=pulses.begin(); it!=pulses.end(); it++ ) {
+      if ( (*it)->fStatus!=KPPulse::kDefined )
+	nactive++;
+    }
+
+    // calc triggering quantities
+    int nhits_window = 0;
+    double ave_window = 0.;
+    for (int i=ibin-windowbins; i<ibin; i++) {
+      nhits_window += tbins.at(i);
+    }
+    ave_window = double(nhits_window)/double(windowbins);
+
+    // expectations
+    std::vector<double> pulse_expectation;
+    pulse_expectation.resize( pulses.size() );
+
+    // Check for new pulse
+    if ( nactive==0 ) {
+      // no active pulses. do search based on hits ver threshold of moving window
+      if ( (!use_ave && nhits_window>(int)threshold ) || (use_ave && ave_window>threshold/windowbins) ) {
+	// make a new pulse!
+	KPPulse* apulse = new KPPulse;
+	apulse->tstart = (ibin-windowbins)*nspertic;
+	apulse->fStatus = KPPulse::kRising; // start of rising edge (until we find max)
+	apulse->last_max = ave_window;
+	apulse->petrig = ave_window*windowbins;
+	pulses.push_back( apulse );
+	npulses++;
+      }
+    }
+    else {
+      // we have active pulses. we look for a second peak with a trigger algorithm that accounts for scintillator decay time
+
+      // find modified threshold
+      double modthresh = threshold;
+      if ( use_ave )
+	modthresh = threshold/double(windowbins);
+      bool allfalling = true;
+      int ipulse = 0;
+      for ( KPPulseListIter it=pulses.begin(); it!=pulses.end(); it++ ) {
+	if ( (*it)->fStatus==KPPulse::kRising ) {
+	  // have a rising peak. will block creation of new pulse.
+	  allfalling = false;
+	  if ( !use_ave )
+	    modthresh += 2.0*nhits_window;
+	  else
+	    modthresh += 2.0*ave_window;
+	  pulse_expectation.at(ipulse) = modthresh;
+	}
+	else {
+	  // for pulses considered falling, we modify the threshold to be 3 sigma (roughly) above
+	  //double expectation = ((*it)->peakamp)*exp( -( ibin*nspertic - (*it)->tpeak )/decay_constant ); // later can expand to multiple components
+	  double arg = 0.0;
+	  for (int idcy=0; idcy<n_decay_constants; idcy++) {
+	    arg += decay_weights[idcy]*( (ibin-windowbins)*nspertic - (*it)->tpeak )/decay_constants_ns[idcy];
+	  }
+	  // calc expectation for bin: note 'peakamp' is always ave of hits in window
+	  double expectation = 0;
+	  if ( !use_ave ) 
+	    expectation = ((*it)->peakamp)*windowbins*exp( -arg ); // window sum
+	  else
+	    expectation = ((*it)->peakamp)*exp( -arg );
+	  modthresh += ( expectation + 3.0*sqrt(expectation) );
+	  pulse_expectation.at(ipulse) = expectation;
+	}
+	ipulse++;
+      }//end of loop over pulses
+
+      // apply threshold
+      if ( allfalling && ( (!use_ave && nhits_window>modthresh) || (use_ave && ave_window>modthresh) ) ) {
+	// new pulse! (on top of other pulse)
+	KPPulse* apulse = new KPPulse;
+        apulse->tstart = (ibin-windowbins)*nspertic;
+        apulse->fStatus = KPPulse::kRising; // start of rising edge (until we find max) 
+	apulse->last_max = ave_window;
+	pulses.push_back( apulse );
+	pulse_expectation.push_back( threshold/windowbins*10 );
+        npulses++;
+      }
+
+      // now we find max of rising pulses and end of falling pulses
+      ipulse = 0;
+      for ( KPPulseListIter it=pulses.begin(); it!=pulses.end(); it++ ) {
+	KPPulse* apulse = *it;
+	if ( apulse->fStatus==KPPulse::kDefined )
+	  continue;
+
+	if ( apulse->fStatus==KPPulse::kRising ) {
+	  if ( ave_window < apulse->last_max )
+	    apulse->nfallingbins += 1;
+	  else {
+	    apulse->nfallingbins = 0;
+	    if ( ave_window>apulse->last_max )
+	      apulse->last_max = ave_window;
+	  }
+
+	  if ( apulse->nfallingbins>NFALLING ) {
+	    // found our max
+	    apulse->fStatus = KPPulse::kFalling;
+	    apulse->tpeak = (ibin-windowbins-apulse->nfallingbins)*nspertic;
+	    apulse->peakamp = apulse->last_max; // note, always uses averages
+	  }
+	}//end of if rising
+	else if ( apulse->fStatus==KPPulse::kFalling ) {
+	  double decay_constant = 0.0;
+	  for (int idcy=0; idcy<n_decay_constants; idcy++)
+	    decay_constant += decay_weights[idcy]*decay_constants_ns[idcy];
+	  //if (  (pulse_expectation.at(ipulse) <= (threshold/float(windowbins)) ) || ((ibin-windowbins)*nspertic > apulse->tpeak + 10*decay_constant) ) {
+	  if ( ((ibin-windowbins)*nspertic > apulse->tpeak + 10*decay_constant) ) {
+	    apulse->tend = (ibin-windowbins)*nspertic;
+	    apulse->fStatus=KPPulse::kDefined;
+	  }
+	}
+	ipulse++;
+      }//end of loop over pulses
+    }//end of active pulse condition
+    
+  }//end of scan over timing histogram
+
+  // save unclosed pulses
+  for ( KPPulseListIter it=pulses.begin(); it!=pulses.end(); it++ ) {
+    KPPulse* apulse = *it;
+    if ( apulse->fStatus!=KPPulse::kDefined ) {
+      if ( apulse->fStatus==KPPulse::kRising ){
+	apulse->peakamp = apulse->last_max;
+	apulse->tpeak = ( nbins-windowbins-1 )*nspertic;
+	apulse->tend  = ( nbins-windowbins )*nspertic;
+      }
+      apulse->fStatus = KPPulse::kDefined;
+    }
+  }
+
+  return npulses;
+}
+
+int find_trigger2( const KPDAQ& daq,
+		   double threshold, double window_ns, double darkrate_hz,
+		   int chstart, int chend,
+		   bool time_cut, double min_time, double max_time,
+		   int n_decay_constants, double decay_weights[], double decay_constants_ns[], 
+		   KPPulseList& pulses, int first_od_sipmid, bool veto, std::vector<double>& tbins,
+		   int version ) {
+  
+  if ( tbins.size()!=10000 ) {
+    tbins.resize( 10000 );
+    tbins.assign( 10000, 0 );
+  }
+
+  daq.copyWaveforms( tbins, chstart, chend );
+  
+  int npulses = find_trigger3( tbins,
+			       threshold, window_ns, darkrate_hz,
+			       time_cut, min_time, max_time,
+			       n_decay_constants, decay_weights, decay_constants_ns, 
+			       pulses, first_od_sipmid, veto, version );
+  return npulses;
 }
