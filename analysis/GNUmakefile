@@ -10,8 +10,8 @@ RAT_LIBS = -L./../lib -lRATEvent -lrat
 LOCAL_INC = -I. 
 
 
-CFLAGS = -g -fPIC 
-#CFLAGS = -O3
+#CFLAGS = -g -fPIC 
+CFLAGS = -O3
 #CFLAGS += -std=c++11
 CFLAGS += $(ROOT_INCLUDES) $(RAT_INCLUDES) $(LOCAL_INC)
 LDFLAGS += `root-config --ldflags` 

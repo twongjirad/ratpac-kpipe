@@ -685,7 +685,7 @@ int find_trigger2( const KPDAQ& daq,
   }
 
   daq.copyWaveforms( tbins, chstart, chend );
-
+  
   int npulses = find_trigger3( tbins,
 			       threshold, window_ns, darkrate_hz,
 			       time_cut, min_time, max_time,

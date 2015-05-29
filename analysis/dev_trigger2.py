@@ -11,7 +11,7 @@ from math import sqrt,exp
 #pmtinfo = pmtinfo.set_index('opdetid')
 
 #inputfile = "output_kpipe_0.root"
-inputfile = "out.root"
+inputfile = "test.root"
 #reader = DSReader('kpipeout_test.root')
 #reader = DSReader('../cry/crkpipe.root')
 #reader = DSReader("output_kpipe_cryevents_2.root")
@@ -33,9 +33,9 @@ c.Divide(1,3)
 
 window = 40
 tave = 40
-darkrate = 1.0e6
+darkrate = 11.0e6
 #nsipms = 100*100
-nsipms = 10
+nsipms = 50
 nexp_dark = darkrate*1.0e-9*window*nsipms
 staterr = sqrt(window*darkrate*1.0e-9*nsipms)
 thresh = nexp_dark + 5.0*staterr
@@ -61,6 +61,9 @@ for iev in xrange(0,nevents):
     mcdata.GetEntry(iev)
     for ibin in xrange(0,twfm.size()):
         ht.SetBinContent( ibin+1, twfm.at(ibin) )
+    c.cd(1)
+    ht.Draw()
+    c.Update()
 
     print "===================================="
     print "EVENT ",iev
@@ -191,7 +194,10 @@ for iev in xrange(0,nevents):
     for pulse in ipulses:
         pulseinfo = pulses[pulse]
         s = ROOT.TLine( pulseinfo['tstart'], 0, pulseinfo['tstart'], 50 )
-        pend = ROOT.TLine( pulseinfo['tend'], 0, pulseinfo['tend'], 50 )
+        try:
+            pend = ROOT.TLine( pulseinfo['tend'], 0, pulseinfo['tend'], 50 )
+        except:
+            end = ht.GetNbinsX()
         if "tpeak" in pulseinfo:
             p = ROOT.TLine( pulseinfo['tpeak'], 0, pulseinfo['tpeak'], 50 )
             p.SetLineColor(ROOT.kMagenta)

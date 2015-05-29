@@ -10,8 +10,7 @@ void gen_dark_noise( RAT::DS::MC* mc, std::string pmtinfofile, double sipm_darkr
   TRandom3* fRand = new TRandom3( time(NULL) );
   //const int NPMTS = 90000 + 2000; // ID + OD tubes
   const int NPMTS = 90000 + nodpmts;
-  int* hashit = new int[NPMTS];
-  memset(hashit, 0, sizeof(int)*NPMTS);
+  std::vector<int> hashit( NPMTS, 0 );
 
   double lambda = window_ns*(sipm_darkrate*1.0e-9);
   PMTinfo* pmtinfo = PMTinfo::GetPMTinfo( pmtinfofile );
@@ -26,7 +25,7 @@ void gen_dark_noise( RAT::DS::MC* mc, std::string pmtinfofile, double sipm_darkr
     if ( pmt==NULL )
       continue;
     int pmtid = pmt->GetID();
-    hashit[pmtid] = 1;
+    hashit.at(pmtid) = 1;
     npe += pmt->GetMCPhotonCount();
 
     // generate photons
@@ -53,7 +52,7 @@ void gen_dark_noise( RAT::DS::MC* mc, std::string pmtinfofile, double sipm_darkr
   int totpmts = 0;
   for (int ipmt=0; ipmt<NPMTS; ipmt++) {
     totpmts++;
-    if ( hashit[ipmt]==1 ) {
+    if ( hashit.at(ipmt)==1 ) {
       continue;
     }
     
@@ -64,7 +63,8 @@ void gen_dark_noise( RAT::DS::MC* mc, std::string pmtinfofile, double sipm_darkr
     double ndarkhits = fRand->Poisson( lambda );
     npe += ndarkhits;
     ndark += ndarkhits;
-    //std::cout << "pmt=" << ipmt << ", dark hits=" << ndarkhits << std::endl;
+//     if ( ipmt>=90000 ) 
+//       std::cout << "pmt=" << ipmt << ", dark hits=" << ndarkhits <<  std::endl;
     for (int idark=0; idark<ndarkhits; idark++) {
       RAT::DS::MCPhoton* aphoton = pmt->AddNewMCPhoton();
       double hittime = fRand->Uniform( 10000.0 );
@@ -85,6 +85,5 @@ void gen_dark_noise( RAT::DS::MC* mc, std::string pmtinfofile, double sipm_darkr
   mc->SetNumPE( npe );
   mc->SetNumDark( ndark );
 
-  delete [] hashit;
   delete fRand;
 }

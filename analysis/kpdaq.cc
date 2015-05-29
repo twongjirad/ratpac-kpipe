@@ -98,10 +98,10 @@ int KPDAQ::getHoopIndexFromPMTID( int pmtid ) {
       }	
     }
     else if ( fVersion==4 ) {
-      if ( pmtid<fNIDSiPMs+10000 )
-	hoopid = 900 + (pmtid-fNIDSiPMs)/100; // 0-999 inclusive are radial
+      if ( pmtid<fNIDSiPMs+(fNODSiPMs-(2)*fNODSiPMS_perhoop))
+	hoopid = pmtid/100; // 0-999 inclusive are radial
       else {
-	if (pmtid<fNIDSiPMs+10100)
+	if (pmtid<fNIDSiPMs+(fNODSiPMs-fNODSiPMS_perhoop))
 	  hoopid = 1000;     // endcap
 	else
 	  hoopid = 1001;     // endcap
@@ -117,7 +117,7 @@ int KPDAQ::getChannelIndex( int ihoop, int pmtid ) {
   int chnum = 0;
   if ( pmtid<fNIDSiPMs ) {
     // ID
-    int hoop_ch = (pmtid%100)/25;
+    int hoop_ch = (pmtid%fNIDSiPMs_perhoop)/( (fNIDSiPMs_perhoop/fNIDchperhoop) );
     chnum = ihoop*fNIDchperhoop + hoop_ch;
   }
   else {
@@ -157,7 +157,6 @@ void KPDAQ::processEvent(  RAT::DS::MC& mc ) {
     pmtid = pmt->GetID();
     hoopid = getHoopIndexFromPMTID( pmtid );
     chnum = getChannelIndex( hoopid, pmtid );
-
   
     for (int ihit=0; ihit<nhits; ihit++) {
       RAT::DS::MCPhoton* hit = pmt->GetMCPhoton( ihit );
@@ -186,7 +185,14 @@ void KPDAQ::processEvent(  RAT::DS::MC& mc ) {
       }
     }//end of hit loop
   }//end of pmt loop
-  
+
+
+//   for (int i=0; i<fOD_wfm.size(); i++) {
+//     double vetope = 0.0;
+//     for (int j=0; j<10000; j++) 
+//       vetope += fOD_wfm.at(i).at(j);
+//     std::cout << "veto daq " << i+fNIDChannels << ": " << vetope << std::endl;
+//   }
 }
 
 double KPDAQ::getWindowSum( int ch, double start, double end ) {
@@ -216,12 +222,13 @@ void KPDAQ::copyWaveforms( std::vector<double>& copy, int chstart, int chend ) c
   int iend = chend;
   if ( istart<0 ) istart = 0;
   if ( iend>=(fNIDChannels+fNODChannels) ) iend = fNIDChannels+fNODChannels-1;
+
   for (int ich=istart; ich<=iend; ich++) {
     for ( int ibin=0; ibin<fNbins; ibin++ ) {
       if ( ich<fNIDChannels )
 	copy.at(ibin) +=  fID_wfm.at(ich).at(ibin);
       else
-	copy.at(ibin) += fOD_wfm.at(ich).at(ibin);
+	copy.at(ibin) += fOD_wfm.at(ich-fNIDChannels).at(ibin);
     }
   }
 }
@@ -234,7 +241,7 @@ void KPDAQ::addWaveform( std::vector<double>& wfm, int ich, double tstart, doubl
     if ( ich<fNIDChannels )
       wfm.at(ibin) +=  fID_wfm.at(ich).at(ibin)-offset;
     else
-      wfm.at(ibin) += fOD_wfm.at(ich).at(ibin)-offset;
+      wfm.at(ibin) += fOD_wfm.at(ich-fNIDChannels).at(ibin)-offset;
   }  
 }
 

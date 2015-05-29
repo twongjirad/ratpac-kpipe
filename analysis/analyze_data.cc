@@ -13,6 +13,9 @@
 #include "pmtinfo.hh"
 #include "kpdaq.h"
 
+//#define __CH_VERBOSE__
+//#define __VETO_VERBOSE__
+
 int main( int nargs, char** argv ) {
 
   // --------------------------------
@@ -42,14 +45,13 @@ int main( int nargs, char** argv ) {
   int first_od_sipmid = 90000;
   int n_decay_constants = 2;
   double window_ns = 50.0;
-  double window_ns_veto = 10.0;
+  double window_ns_veto = 40.0;
   double decay_weights[2] = { 0.6, 0.4 };
   double decay_constants_ns[2] = { 45.0, 67.6 };
   int n_decay_constants_veto = 1;
   double decay_weights_veto[1] = { 1.0 };
   double decay_constants_ns_veto[1] = { 50.0 };
   int trig_version = 4;
-  int nod_sipms_per_hoop = 100;
   int nod_sipms_per_hoop_endcap = 100;
   int nodpmts[5] = {0,1200,1200,5200,10200}; 
   int nodhoops[5] = { 0,102,102,102,102 };
@@ -216,7 +218,7 @@ int main( int nargs, char** argv ) {
   tree->Branch( "ttrig_veto",  &ttrig_veto );
   tree->Branch( "tend_veto",  &tend_veto );
   tree->Branch( "twfm", &twfm );
-//   tree->Branch( "twfm_veto", &twfm_veto );
+  tree->Branch( "twfm_veto", &twfm_veto );
   // cosmic truth
   if ( cry_mode ) {
     tree->Branch( "ncr_photons",  &ncr_photons, "ncr_photons/I" );
@@ -232,9 +234,9 @@ int main( int nargs, char** argv ) {
   }
 
 
-  int ievent = 5;
+  int ievent = 0;
   int nevents = ds->GetTotal();
-  nevents = 20;
+  //nevents = 20;
 
   KPPulseList pulselist;
   KPPulseList pulselist_veto;
@@ -442,29 +444,6 @@ int main( int nargs, char** argv ) {
     daq.processEvent( *mc );
 
     // --------------------------------
-    // Find Z of the first pulse
-    /*
-    int maxhoop = 0;
-    prefit_z_cm = calc_prefitz( mc, pmtinfofile, sipm_darkrate_hz, 20.0, 90000, 2000, maxhoop );
-    std::cout << "  prefit z: " << prefit_z_cm << " maxhoop=" << maxhoop << std::endl;
-
-    int min_hoopid = maxhoop-75;
-    int max_hoopid = maxhoop+75;
-
-    if ( min_hoopid<0 )
-      min_hoopid = 0;
-    if ( max_hoopid>=900 )
-      max_hoopid = 900;
-
-    int min_hoopid_search = maxhoop-num_id_hoop_neighbors;
-    int max_hoopid_search = maxhoop+num_id_hoop_neighbors;
-
-
-    
-    daq.copyWaveforms( twfm, maxhoop, maxhoop );
-    */
-
-    // --------------------------------
     // TRIGGER
     std::cout << "  -- pulse finder -- " << std::endl;
     int ncoinhoops = 2;
@@ -487,6 +466,7 @@ int main( int nargs, char** argv ) {
     std::map< int, KPPulseList* > idch_pulse_list;
     std::vector<double> tmp_twfm_id(10000, 0.0);
 
+    // assemble list of pulses from channels
     int maxhoop = -1;
     double maxhoop_pe = 0;
     int npre_pulses = 0;
@@ -504,15 +484,18 @@ int main( int nargs, char** argv ) {
 				      false, 0, 0,
 				      n_decay_constants, decay_weights, decay_constants_ns,
 				      *(idch_pulse_list[ich]), 90000, false, tmp_twfm_id, trig_version );
-
+#ifdef __CH_VERBOSE__
       std::cout << "[ channel " << ich << "]: ";
       std::cout << " npulses=" << ch_npulses;
+#endif
       double chpe = 0.0;
       int ich_p = 1;
       for ( KPPulseListIter itp=idch_pulse_list[ich]->begin(); itp!=idch_pulse_list[ich]->end(); itp++ ) {
 	double ppe = 0;
 	double ppe_dark = 0;
+#ifdef __CH_VERBOSE__
 	std::cout << " (" << ich_p << ") ";
+#endif
 	int iend = (*itp)->tstart+window_ns;
 	if ( iend>=10000 )
 	  iend = 9999;
@@ -521,15 +504,20 @@ int main( int nargs, char** argv ) {
 	  ppe_dark += (sipm_darkrate_hz*1.0e-9)*100*ncoinhoops;
 	}
 	chpe += ppe-ppe_dark;
+#ifdef __CH_VERBOSE__
 	std::cout << " tpeak=" << (*itp)->tpeak << " pe=" << ppe-ppe_dark  << " (dark=" << ppe_dark << "+/-" << sqrt(ppe_dark) << "), ";
+#endif
 	ich_p++;
       }
 
       npre_pulses += ch_npulses;
+#ifdef __CH_VERBOSE__ 
       std::cout << ": total channel pe=" << chpe << std::endl;
+#endif
     }
-    std::cout << "Number of channel pulses: " << npre_pulses << std::endl;
+    std::cout << "Number of ID channel pulses: " << npre_pulses << std::endl;
 
+    // merge regions of interested based on pulses into one waveform
     twfm.assign(10000, 0.0);
     for ( std::map< int, KPPulseList* >::iterator it=idch_pulse_list.begin(); it!=idch_pulse_list.end(); it++ ) {
       int ich = (*it).first;
@@ -537,12 +525,11 @@ int main( int nargs, char** argv ) {
       if ( (*it).second->size()>0 ) {
 	for ( KPPulseListIter pit=(*it).second->begin(); pit!=(*it).second->end(); pit++ ) {
 
-	  // require neighboor cooincidence
 	  bool fill = false;
-	  int jch = ich-1;
-	  if ( ich==0 )
-	    jch = ich+1;
-	  
+	  // require neighboor cooincidence
+// 	  int jch = ich-1;
+// 	  if ( ich==0 )
+// 	    jch = ich+1;
 // 	  KPPulseList* us_pulses = idch_pulse_list[jch];
 // 	  for (int jpulse=0; jpulse<us_pulses->size(); jpulse++) {
 // 	    if ( fabs( us_pulses->at(jpulse)->tstart-(*pit)->tstart )<5.0 ) {
@@ -563,10 +550,9 @@ int main( int nargs, char** argv ) {
       }//if pulses found
     }//end of loop over channels and pulselist
 
-
-    // now search again
+    // look for final pulses
     npulses = find_trigger3( twfm,
-			     threshold, 1.5*window_ns, sipm_darkrate_hz,
+			     threshold, window_ns_veto, sipm_darkrate_hz,
 			     false, 0, 0,
 			     n_decay_constants, decay_weights, decay_constants_ns,
 			     pulselist, 90000, false, trig_version );
@@ -579,7 +565,7 @@ int main( int nargs, char** argv ) {
       assign_pulse_charge( mc, pmtinfofile, pulselist, 
 			   sipm_darkrate_hz,
 			   true, min_hoopid, max_hoopid,
-			   60.0, 90000, nod_sipms_per_hoop, nod_sipms_per_hoop_endcap,
+			   60.0, 90000, nodsipms_per_hoop[trig_version], nod_sipms_per_hoop_endcap,
 			   false );
     }
     float maxhoop_pos[3] = { 0 };
@@ -608,255 +594,192 @@ int main( int nargs, char** argv ) {
     pulselist.clear();
 
     // ==================================================================================================================
-    // VETO: LOOKING FOR SMALLER PULSE, SEARCH, HOOP BY HOOP
-    double vetoerr, vetothreshold;
-//     double vetothreshold_side = 10;
-//     double vetothreshold_cap = 10;
-//     double vetoerr_side = 1.;
-//     double vetoerr_cap = 1.;
-    
-//     // set thresholds
-//     vetothreshold_side = nod_sipms_per_hoop*(1.0)*(sipm_darkrate_hz*1.0e-9)*window_ns_veto;
-//     vetothreshold_cap  = 100*(sipm_darkrate_hz*1.0e-9)*window_ns_veto;
+    // VETO: SAME STRATEGY AS SIGAL REGION
+    int veto_ncoinhoops = 2; // we analyze hoop with neighboring hoops
+    int veto_nhoops_group_sides = 2*int(ncoinhoops/2)+1; 
+    int veto_nhoops_group_caps = 1; // except for caps, these analyzed alone
+    double veto_expected_darkrate_sides = nodsipms_per_hoop[trig_version]*(sipm_darkrate_hz*1.0e-9)*window_ns_veto*( veto_nhoops_group_sides );
+    double veto_sig_darkrate_sides = sqrt( veto_expected_darkrate_sides );
+    double veto_threshold_sides = veto_expected_darkrate_sides + 4.0*veto_sig_darkrate_sides;
+    double veto_expected_darkrate_caps = nod_sipms_per_hoop_endcap*(sipm_darkrate_hz*1.0e-9)*window_ns_veto*veto_nhoops_group_caps;
+    double veto_sig_darkrate_caps = sqrt( veto_expected_darkrate_caps );
+    double veto_threshold_caps = veto_expected_darkrate_caps + 4.0*veto_sig_darkrate_caps;
 
-//     if ( vetothreshold_side<1.0 ) {
-//       if ( trig_version<=2 ) {
-// 	vetoerr_side = 5.0;
-// 	vetoerr_cap = 9.0;
-//       }
-//       else {
-// 	vetoerr_side = 7.0;
-// 	vetoerr_cap = 12.0;
-//       }
-//     }
-//     else if ( vetothreshold_side<20.0 ) {
-//       // medium
-//       if ( trig_version==3 ) {
-// 	//vetoerr_side = 17.0; // 10 ns window
-// 	vetoerr_side = 11.0; // 10 ns window (low)
-// 	//vetoerr_side = 9.0; // 5 ns window
-       
-// 	//vetoerr_cap = 25.0; // 10 ns window
-// 	vetoerr_cap = 17.0; // 5 ns window
-//       }
-//       else {
-// 	vetoerr_side = 5.0*sqrt(vetothreshold_side); // normal
-// 	vetoerr_cap = 5.0*sqrt(vetothreshold_cap); // normal
-//       }
-//     }
-//     else {
-//       // big thresh
-//       vetoerr_side = 3.5*sqrt(vetothreshold_side); // normal
-//       vetoerr_cap = 3.5*sqrt(vetothreshold_cap); // normal
-//     }
-    
+    std::cout << "  OD pulses [thresh: SIDES=" << veto_threshold_sides << ", CAPS=" << veto_threshold_caps << "] "
+	      << " (expected dark rate:"
+	      << " SIDES=" << veto_expected_darkrate_sides << " +/- " << veto_sig_darkrate_sides 
+	      << " CAPS=" << veto_expected_darkrate_caps << " +/- " << veto_sig_darkrate_caps << " )" << std::endl;
 
-    std::cout << "  OD pulses (expected dark rate=" << nod_sipms_per_hoop*(sipm_darkrate_hz*1.0e-9)*window_ns_veto << ")" << std::endl;
     std::map< int, KPPulseList* > hoop_pulse_list;
+    std::vector<double> temp_twfm_veto(10000, 0.0);
 
-    std::vector<double> temp_twfm_veto;
-    for (int ihoop=900; ihoop<900+102; ihoop++) {
+    // assemble list of pulses from channels
+    for (int ich=veto_ncoinhoops/2; ich<daq.getNODChannels(); ich ++) {
 
-      hoop_pulse_list[ihoop] = new KPPulseList;
-
-      int ihoop_end = ihoop;
-      if ( ihoop<1000 ) {
-	if ( ihoop_end>=1000 )
-	  ihoop_end = ihoop_end=999;
-      }
-      else {
-	ihoop_end = ihoop;
-      }
-
-      if ( ihoop<1000) {
-	//vetothreshold = vetothreshold_side + vetoerr_side;
-	vetothreshold = veto_threshold1_sidehoops;
-	vetoerr = veto_threshold1_sidehoops;
-      }
-      else {
-	//vetothreshold = vetothreshold_cap + vetoerr_cap;
-	vetothreshold = veto_threshold1_endhoops;
-	vetoerr = veto_threshold1_endhoops/4.0;
-	//std::cout << "vetothresh: " << vetothreshold << std::endl;
-      }
       
-      if ( sipm_darkrate_hz<=0 )
+      hoop_pulse_list[ich] = new KPPulseList;
+      double vetothreshold;
+      double veto_nhoops_group;
+      int up_ch;
+      int ds_ch;
+      if ( ich<daq.getNODChannels()-2 ) {
+	// sides
+	up_ch = ich-int(veto_ncoinhoops/2);
+	ds_ch = ich+int(veto_ncoinhoops/2);
+	if ( ds_ch>=daq.getNODChannels()-2 ){
+	  ds_ch = daq.getNODChannels()-3;
+	  if ( ds_ch<ich ) ds_ch = ich;
+	}
+	vetothreshold = veto_threshold_sides;
+	veto_nhoops_group = veto_nhoops_group_sides;
+      }
+      else {
+	// caps
+	up_ch = ds_ch = ich;
+	vetothreshold = veto_threshold_caps;
+	veto_nhoops_group = veto_nhoops_group_caps;
+      }
+
+      if ( sipm_darkrate_hz==0 )
 	vetothreshold = 0.5;
-
-      KPPulseList* mypulselist = hoop_pulse_list[ihoop];
-      int npulses_vetohoop = find_trigger( mc, 
-					   vetothreshold, window_ns_veto, sipm_darkrate_hz,
-					   true, ihoop, ihoop_end,
-					   false, 0, 0.0,
-					   n_decay_constants_veto, decay_weights_veto, decay_constants_ns_veto,
-					   *hoop_pulse_list[ihoop], 90000, true, temp_twfm_veto, trig_version );
-      //npulses_veto += npulses_vetohoop;
       
-      if ( npulses_vetohoop>0 ) {
-	assign_pulse_charge( mc, pmtinfofile, *mypulselist,
-			     sipm_darkrate_hz,
-			     true, ihoop, ihoop,
-			     50.0, 90000, nod_sipms_per_hoop, nod_sipms_per_hoop_endcap,
-			     true, trig_version );
-	if ( sipm_darkrate_hz==0 || true) {
-	  std::cout << "    -- od hoopid: [" << ihoop << "," << ihoop_end << "]"
-		    << ": num veto pulses=" << npulses_vetohoop
-		    << " dark rate in window=" << nod_sipms_per_hoop*((ihoop_end-ihoop+1))*(sipm_darkrate_hz*1.0e-9)*window_ns_veto << " +/- " << vetoerr
-		    << " vetothreshold=" << vetothreshold << " (ave=" << vetothreshold/window_ns_veto << ")"
-		    << std::endl;
-	  for ( KPPulseListIter it=mypulselist->begin(); it!=mypulselist->end(); it++ )
-	    std::cout << "      - tstart=" << (*it)->tstart 
-		      << " tpeak=" << (*it)->tpeak 
-		      << " tend=" << (*it)->tend
-		      << " pe=" << (*it)->pe << " (dark=" << (*it)->pe_dark << ", adjusted=" << (*it)->pe_adjusted << ")"
-		      << " z=" << (*it)->z 
-		      << " petrig=" << (*it)->petrig << " peakamp=" << (*it)->peakamp*window_ns_veto
-		      << std::endl;
-	  
+      KPPulseList* mypulselist = hoop_pulse_list[ich];
+      int npulses_vetohoop = find_trigger2( daq,
+					    vetothreshold, window_ns_veto, sipm_darkrate_hz,
+					    900+up_ch, 900+ds_ch,
+					    false, 0, 0.0,
+					    n_decay_constants_veto, decay_weights_veto, decay_constants_ns_veto,
+					    *mypulselist, 90000, true, temp_twfm_veto, trig_version );
+
+#ifdef __VETO_VERBOSE__
+      std::cout << "[ veto channel " << ich << "]: (" << up_ch << ", " << ds_ch << ", " << vetothreshold << ") ";
+#endif
+
+      double wfm_integral = 0;
+      for ( std::vector< double >::iterator itwfm=temp_twfm_veto.begin(); itwfm!=temp_twfm_veto.end(); itwfm++ )
+	wfm_integral += (*itwfm);
+#ifdef __VETO_VERBOSE__
+      std::cout << " integral=" << wfm_integral << " ";
+      
+      std::cout << " npulses=" << npulses_vetohoop;      
+#endif
+      double chpe = 0.0;
+      int ich_p = 1;
+      for ( KPPulseListIter itp=mypulselist->begin(); itp!=mypulselist->end(); itp++ ) {
+	double ppe = 0;
+	double ppe_dark = 0;
+#ifdef __VETO_VERBOSE__
+	std::cout << " (" << ich_p << ") ";
+#endif
+	int iend = (*itp)->tstart+window_ns;
+	if ( iend>=10000 )
+	  iend = 9999;
+	for (int ibin= (*itp)->tstart; ibin< iend; ibin++ ) {
+	  ppe += temp_twfm_veto.at( ibin ); 
+	  ppe_dark += (sipm_darkrate_hz*1.0e-9)*100*veto_nhoops_group;
 	}
+	chpe += ppe-ppe_dark;
+#ifdef __VETO_VERBOSE__
+	std::cout << " tpeak=" << (*itp)->tpeak << " pe=" << ppe-ppe_dark  << " (dark=" << ppe_dark << "+/-" << sqrt(ppe_dark) << "), ";
+#endif
+	ich_p++;
       }
+#ifdef __VETO_VERBOSE__
+      std::cout << ": total channel pe=" << chpe << std::endl;
+#endif
+    }//loop over veto channels
 
-    }//end of loop over hoops, finding veto pulses on each hoop
+    // merge regions of interested based on pulses into one waveform
+    twfm_veto.assign(10000, 0.0);
+    double veto_maxhoop_pe = 0.0;
+    int veto_maxhoop = -1;
+    for ( std::map< int, KPPulseList* >::iterator it=hoop_pulse_list.begin(); it!=hoop_pulse_list.end(); it++ ) {
+      int ich = (*it).first;
 
-    // Now look for coincident pulses on adjecent hoops (side only): endcaps?
-    // save to pulselist_veto
-    std::cout << "final veto pulse filter: single threshold=" << veto_threshold2_sidehoops  << " " << veto_threshold2_endhoops << std::endl;
-    for (int ihoop=900; ihoop<1002; ihoop++) {
-    
-      int ihoop_us = ihoop-1;
-      if ( ihoop==900 )
-	ihoop_us = 1000; // upsteam end cap
-      if ( ihoop==1001 )
-	ihoop_us = 999; // upstream from downstream end cap
+      double nvetosipms = nodsipms_per_hoop[trig_version];
+      if ( ich>=daq.getNODChannels()-2 )
+	nvetosipms = nod_sipms_per_hoop_endcap;
 
-      if ( hoop_pulse_list[ihoop]->size()==0 )
-	continue;
+      double chpe = 0.0;
+      if ( (*it).second->size()>0 ) {
+	for ( KPPulseListIter pit=(*it).second->begin(); pit!=(*it).second->end(); pit++ ) {
 
-      // order n^2 search. yuck...
-      for ( KPPulseListIter it=hoop_pulse_list[ihoop]->begin(); it!=hoop_pulse_list[ihoop]->end(); it++ ) {
-	(*it)->ihoop = ihoop;
-
-	if ( (*it)->tstart>250.0 )
-	  continue; // skip this
-
-	if ( ihoop<1000 ) {
-	  //vetothreshold = vetothreshold_side;
-	  vetothreshold = veto_threshold2_sidehoops;
-	  //vetoerr = vetoerr_side;
-	}
-	else {
-	  //vetothreshold = vetothreshold_cap;
-	  //vetoerr = vetoerr_cap;
-	  vetothreshold = veto_threshold2_endhoops;
-	}
-
-	if ( (*it)->peakamp*window_ns_veto > (vetothreshold) ) {// auto accept
-	  std::cout << "  single large veto pulse: ihoop=" << ihoop
-		    << "  t1=" << (*it)->tstart
-		    << "  pe1=" << (*it)->pe_adjusted
-		    << "  peakamp=" << (*it)->peakamp*window_ns_veto
-		    << std::endl;
-
-	  if ( !is_pulse_in_list( pulselist_veto, *(*it) ) )
-	    pulselist_veto.push_back( *it );
-	  continue;
-	}
-	
-	if ( ihoop==1000 )
-	  continue; // no coincidence check for this one
-
-	//std::cout << " testing veto pulse at hoop=" << ihoop << " and t=[" << (*it)->tstart << "," << (*it)->tend << "]" << std::endl;
-	for ( KPPulseListIter it_us=hoop_pulse_list[ihoop_us]->begin(); it_us!=hoop_pulse_list[ihoop_us]->end(); it_us++ ) {
-	  if ( fabs( (*it)->tstart-(*it_us)->tstart )<hoop_coincidence_window_ns ) {
-	    // coincident pulses!
-	    std::cout << "  coincident veto pulse: ihoop(k-1)=" << ihoop_us << " and " << ihoop << ": " 
-		      << "  t1=" << (*it)->tstart << " t2=" << (*it_us)->tstart
-		      << "  pe1=" << (*it)->pe_adjusted << " pe2=" << (*it_us)->pe_adjusted
-		      << std::endl;
-	    if ( !is_pulse_in_list( pulselist_veto, *(*it) ) )
-	      pulselist_veto.push_back( *it );
-	    if ( !is_pulse_in_list( pulselist_veto, *(*it_us) ) )
-	      pulselist_veto.push_back( *it_us );
+	  bool fill = false;
+	  // require neighboor cooincidence
+// 	  int jch = ich-1;
+// 	  if ( ich==0 )
+// 	    jch = ich+1;
+// 	  KPPulseList* us_pulses = idch_pulse_list[jch];
+// 	  for (int jpulse=0; jpulse<us_pulses->size(); jpulse++) {
+// 	    if ( fabs( us_pulses->at(jpulse)->tstart-(*pit)->tstart )<5.0 ) {
+// 	      fill = true;
+// 	      break;
+// 	    }
+// 	  }
+	  fill = true;
+	  
+	  if ( fill ) {
+	    daq.addWaveform( twfm_veto, 900+ich, (*pit)->tstart, (*pit)->tend, sipm_darkrate_hz*1.0e-9*nvetosipms  );
+	    if ( (*pit)->peakamp > veto_maxhoop_pe ) {
+	      veto_maxhoop_pe = (*pit)->peakamp;
+	      veto_maxhoop = 900+ich;
+	    }
 	  }
-	  
-	}
-      }
-    }//end of loop look for coincidence
+	}//end of loop over channel pulses
+      }//if pulses found
+    }//end of loop over channels and pulselist
+    
+    // look for final pulses
+    std::cout << "  post veto pulse finding: " << veto_threshold_sides << ", " << window_ns_veto << std::endl;
+    npulses_veto = find_trigger3( twfm_veto,
+				  veto_threshold_sides, window_ns_veto, sipm_darkrate_hz,
+				  false, 0, 0,
+				  n_decay_constants_veto, decay_weights_veto, decay_constants_ns_veto,
+				  pulselist_veto, 90000, true, trig_version );
+    if ( npulses_veto>0 ) {
+//       int min_hoopid = maxhoop - num_id_hoop_sum;
+//       int max_hoopid = maxhoop + num_id_hoop_sum;
+//       if ( min_hoopid<0 ) min_hoopid = 0;
+//       if ( max_hoopid>=daq.getNIDChannels() ) max_hoopid = daq.getNIDChannels()-1;
 
+      assign_pulse_charge( mc, pmtinfofile, pulselist, 
+			   sipm_darkrate_hz,
+			   false, 0, 0,
+			   60.0, 90000, nodsipms_per_hoop[trig_version], nod_sipms_per_hoop_endcap,
+			   true );
+    }
+//     float maxhoop_pos[3] = { 0 };
+//     if ( npulses>0 )
+//       daq.getChannelPos( maxhoop, &maxhoop_pos[0] );
+    std::cout << "  OD npulses=" << npulses_veto << std::endl;
+    
+    for ( KPPulseListIter it=pulselist_veto.begin(); it!=pulselist_veto.end(); it++ )
+      std::cout << "    - tstart=" << (*it)->tstart 
+		<< " tpeak=" << (*it)->tpeak 
+		<< " tend=" << (*it)->tend
+		<< " pe=" << (*it)->pe << " (dark=" << (*it)->pe_dark << ", adjusted=" << (*it)->pe_adjusted << ") z=" << (*it)->z << std::endl;
+    
+//     for ( KPPulseListIter it=pulselist.begin(); it!=pulselist.end(); it++ ) {
+//       ttrig.push_back( (*it)->tstart );
+//       tpeak.push_back( (*it)->tpeak );
+//       tend.push_back( (*it)->tend );
+//       peakamp.push_back( (*it)->peakamp );
+//       pulseperaw.push_back( (*it)->pe ); 
+//       pulsepedark.push_back( (*it)->pe_dark ); 
+//       pulsepe.push_back( (*it)->pe_adjusted ); 
+//       pulsez.push_back( (*it)->z ); 
+//       delete *it;
+//       *it = NULL;
+//     }
+    //std::cout << "  Total OD pulse pe: " << pulse_totodpe << " (vs. pre pe " << predark_odpe <<")" << std::endl;
 
-    pulse_totodpe = 0.;
-    for ( int iod=0; iod<pulselist_veto.size(); iod++) {
-      int ihoop = pulselist_veto.at(iod)->ihoop;
-      int ihoop_end = pulselist_veto.at(iod)->ihoop;
-//       double odintegral=0.0;
-//       for ( std::vector<double>::iterator od_it=temp_twfm_veto.begin(); od_it!=temp_twfm_veto.end(); od_it++)
-// 	odintegral += *od_it; 
+    // ==================================================================================================================
+    // CLEAN UP PULSE LISTS
 
-      if ( pulselist_veto.at(iod)->pe_adjusted>0.0 )
-	pulse_totodpe += pulselist_veto.at(iod)->pe_adjusted;
-
-      float odpos[3];
-      //pmtinfo->getposition( 90000 + (ihoop-900), odpos );
-      int odpmt_fromhoop;
-      if ( trig_version<=2 ) {
-	odpmt_fromhoop = 90000 + (ihoop-900)*10;
-      }
-      else if ( trig_version==3 ) {
-	if ( ihoop<1000 )
-	  odpmt_fromhoop = 90000 + (ihoop-900)*50;
-	else if ( ihoop==1000 )
-	  odpmt_fromhoop = 95000;
-	else if ( ihoop==1001 )
-	  odpmt_fromhoop = 95100;
-	else
-	  assert(false);
-      }
-      else if ( trig_version==4 ) {
-	if ( ihoop<1000 )
-	  odpmt_fromhoop = 90000 + (ihoop-900)*100;
-	else if ( ihoop==1000 )
-	  odpmt_fromhoop = 100000;
-	else if ( ihoop==1001 )
-	  odpmt_fromhoop = 100100;
-	else
-	  assert(false);
-      }
-      else
-	assert(false);
-
-      pmtinfo->getposition( odpmt_fromhoop, odpos );
-      //if ( npulses_vetohoop>0 || ( sipm_darkrate_hz==0 && odintegral>0 ) ) {
-      std::cout << "    -- od hoopid: [" << ihoop << "," << ihoop_end << "]"
-		<< ": z=" << odpos[2] 
-	//<< " integral=" << odintegral 
-		<< " dark rate in window=" << nod_sipms_per_hoop*((ihoop_end-ihoop+1))*(sipm_darkrate_hz*1.0e-9)*window_ns_veto << " +/- " << vetoerr
-		<< " vetothreshold=" << vetothreshold << " (ave=" << vetothreshold/window_ns_veto << ")"
-	//<< " npulses=" << npulses_vetohoop
-		<< std::endl;
-      //for (int iod=0; iod<npulses_vetohoop; iod++) {
-      std::cout << "     odpulse " << iod << ": "
-		<< " pe=" << pulselist_veto.at(iod)->pe_adjusted
-		<< " t=(" << pulselist_veto.at(iod)->tstart << ", " << pulselist_veto.at(0)->tpeak << ", " << pulselist_veto.at(0)->tend << ")"
-		<< " z=" << pulselist_veto.at(iod)->z
-		<< " pedark=" << pulselist_veto.at(iod)->pe_dark << " +/- " << sqrt( pulselist_veto.at(iod)->pe_dark )
-		<< " petrig=" << pulselist_veto.at(iod)->petrig
-		<< " peakamp=" << pulselist_veto.at(iod)->peakamp*window_ns_veto
-		<< std::endl;
-      //pulse_totodpe += pulselist_veto.at(iod)->pe_adjusted;
-      pulsepe_veto.push_back( pulselist_veto.at(iod)->pe_adjusted );
-      pulsez_veto.push_back(  pulselist_veto.at(iod)->z );
-      ttrig_veto.push_back(  pulselist_veto.at(iod)->tstart );
-      tend_veto.push_back(  pulselist_veto.at(iod)->tend );
-	//}
-    } // loop over saved pulses
-    npulses_veto = pulselist_veto.size();
-      //if ( ihoop>=1000 && npulses_vetohoop>0 ) {
-//       if ( ihoop==916 ) {
-// 	twfm_veto = temp_twfm_veto;
-// 	std::cout << "save veto wfm: " << ihoop << std::endl;
-//       }
-
-    // clean up
+    pulselist.clear();
+    for ( std::map< int, KPPulseList* >::iterator it=idch_pulse_list.begin(); it!=idch_pulse_list.end(); it++ ) {
+      free_pulse_list( *(*it).second );
+    }    
 
     //free_pulse_list( pulselist_veto );
     pulselist_veto.clear(); // does not own
@@ -864,7 +787,7 @@ int main( int nargs, char** argv ) {
       free_pulse_list( *(*it).second );
     }
 
-    std::cout << "  Total OD pulse pe: " << pulse_totodpe << " (vs. pre pe " << predark_odpe <<")" << std::endl;
+
     // ==================================================================================================================
 
     ievent++;
