@@ -11,7 +11,7 @@
 #include "gen_dark_noise.hh"
 #include "prefitz.hh"
 #include "pmtinfo.hh"
-
+#include "kpdaq.h"
 
 int main( int nargs, char** argv ) {
 
@@ -41,8 +41,8 @@ int main( int nargs, char** argv ) {
   RAT::DSReader* ds = new RAT::DSReader( inputfile.c_str() ); 
   int first_od_sipmid = 90000;
   int n_decay_constants = 2;
-  double window_ns = 40.0;
-  double window_ns_veto = 20.0;
+  double window_ns = 5.0;
+  double window_ns_veto = 10.0;
   double decay_weights[2] = { 0.6, 0.4 };
   double decay_constants_ns[2] = { 45.0, 67.6 };
   int n_decay_constants_veto = 1;
@@ -53,6 +53,7 @@ int main( int nargs, char** argv ) {
   int nod_sipms_per_hoop_endcap = 100;
   int nodpmts[5] = {0,1200,1200,5200,10200}; 
   int nodhoops[5] = { 0,102,102,102,102 };
+  int nodsipms_per_hoop[5] = { 0, 10, 10, 50, 100 };
   const int NPMTS = 90000+nodpmts[trig_version];
 
   double veto_threshold1_sidehoops = 37.0;
@@ -61,10 +62,17 @@ int main( int nargs, char** argv ) {
   double veto_threshold2_endhoops  = 42.0;
   double hoop_coincidence_window_ns = 10.0;
 
+  int num_id_hoop_neighbors = 4;
+
   double sipm_darkrate_hz = 10.0e6;
   double threshold = 500.0;
   //double sipm_darkrate_hz = 0.0;
 //   double threshold = 10.0;
+
+
+  // --------------------------------
+  // Build DAQ
+  KPDAQ daq( 90, nodsipms_per_hoop[trig_version], 1000, nodhoops[trig_version], 1, trig_version, pmtinfofile );
 
   // --------------------------------
   // INPUT CRY VARS
@@ -206,7 +214,7 @@ int main( int nargs, char** argv ) {
   tree->Branch( "pulsez_veto",  &pulsez_veto );
   tree->Branch( "ttrig_veto",  &ttrig_veto );
   tree->Branch( "tend_veto",  &tend_veto );
-//   tree->Branch( "twfm", &twfm );
+  tree->Branch( "twfm", &twfm );
 //   tree->Branch( "twfm_veto", &twfm_veto );
   // cosmic truth
   if ( cry_mode ) {
@@ -225,12 +233,15 @@ int main( int nargs, char** argv ) {
 
   int ievent = 0;
   int nevents = ds->GetTotal();
-  //nevents = 11;
+  nevents = 20;
 
   KPPulseList pulselist;
   KPPulseList pulselist_veto;
 
   std::cout << "Number of events: " << nevents << std::endl;
+
+  twfm.reserve(10000);
+  twfm_veto.reserve(10000);
   
   while (ievent<nevents) {
     RAT::DS::Root* root = ds->GetEvent(ievent);
@@ -425,22 +436,33 @@ int main( int nargs, char** argv ) {
 
     std::cout << "  ID PEs: " << idpe << " PMTs: " << idpmts << std::endl;
     std::cout << "  OD PEs: " << odpe << " PMTs: " << odpmts << std::endl;
+    // --------------------------------
+    // LOAD DAQ
+    daq.processEvent( *mc );
 
     // --------------------------------
     // Find Z of the first pulse
     int maxhoop = 0;
-    prefit_z_cm = calc_prefitz( mc, pmtinfofile, sipm_darkrate_hz, 500.0, 90000, 2000, maxhoop );
+    prefit_z_cm = calc_prefitz( mc, pmtinfofile, sipm_darkrate_hz, 20.0, 90000, 2000, maxhoop );
     std::cout << "  prefit z: " << prefit_z_cm << " maxhoop=" << maxhoop << std::endl;
+
     int min_hoopid = maxhoop-75;
     int max_hoopid = maxhoop+75;
+
     if ( min_hoopid<0 )
       min_hoopid = 0;
     if ( max_hoopid>=900 )
       max_hoopid = 900;
 
-    double expected_darkrate = (double( max_hoopid - min_hoopid )*100)*(sipm_darkrate_hz*1.0e-9)*window_ns;
+    int min_hoopid_search = maxhoop-num_id_hoop_neighbors;
+    int max_hoopid_search = maxhoop+num_id_hoop_neighbors;
+
+    double expected_darkrate = (double( max_hoopid_search - min_hoopid_search + 1)*100)*(sipm_darkrate_hz*1.0e-9)*window_ns;
     double sig_darkrate = sqrt( expected_darkrate );
     threshold = expected_darkrate + 5.0*sig_darkrate;
+    
+    daq.copyWaveforms( twfm, maxhoop, maxhoop );
+    
 
     // --------------------------------
     // TRIGGER
@@ -449,7 +471,7 @@ int main( int nargs, char** argv ) {
     // INNER PIPE
     npulses = find_trigger( mc, 
 			    threshold, window_ns, sipm_darkrate_hz,
-			    true, min_hoopid, max_hoopid,
+			    true, min_hoopid_search, max_hoopid_search,
 			    false, 0, 0,
 			    n_decay_constants, decay_weights, decay_constants_ns,
 			    pulselist, 90000, false, twfm );
@@ -459,7 +481,7 @@ int main( int nargs, char** argv ) {
 			 true, min_hoopid, max_hoopid,
 			 60.0, 90000, nod_sipms_per_hoop, nod_sipms_per_hoop_endcap,
 			 false );
-    std::cout << "  ID npulses=" << npulses << "  with threshold=" <<  threshold << std::endl;
+    std::cout << "  ID npulses=" << npulses << "  with threshold=" <<  threshold << " ( exp. dark rate=" << expected_darkrate << " +/- " << sig_darkrate << ")" << std::endl;
     for ( KPPulseListIter it=pulselist.begin(); it!=pulselist.end(); it++ )
       std::cout << "    - tstart=" << (*it)->tstart 
 		<< " tpeak=" << (*it)->tpeak 

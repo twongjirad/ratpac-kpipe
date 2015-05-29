@@ -43,16 +43,19 @@ void gen_dark_noise( RAT::DS::MC* mc, std::string pmtinfofile, double sipm_darkr
       pmtinfo->getposition( pmtid, pmtpos );
       aphoton->SetPosition( TVector3( pmtpos[0], pmtpos[1], pmtpos[2] ) );
       aphoton->SetCharge(1.0);
-      aphoton->IsDarkHit();
+      aphoton->SetDarkHit(true);
       aphoton->SetOriginFlag( 4 );
       aphoton->SetTrackID( -1 );
     }
   }
 
   // Now add dark hits to pmts without hits
+  int totpmts = 0;
   for (int ipmt=0; ipmt<NPMTS; ipmt++) {
-    if ( hashit[ipmt]==1 )
+    totpmts++;
+    if ( hashit[ipmt]==1 ) {
       continue;
+    }
     
     RAT::DS::MCPMT* pmt = mc->AddNewMCPMT();
     pmt->SetID( ipmt );
@@ -71,11 +74,13 @@ void gen_dark_noise( RAT::DS::MC* mc, std::string pmtinfofile, double sipm_darkr
       pmtinfo->getposition( ipmt, pmtpos );
       aphoton->SetPosition( TVector3( pmtpos[0], pmtpos[1], pmtpos[2] ) );
       aphoton->SetCharge(1.0);
-      aphoton->IsDarkHit();
+      aphoton->SetDarkHit(true);
       aphoton->SetOriginFlag( 4 );
       aphoton->SetTrackID( -1 );
     }
   }
+
+  std::cout << "dark nose applied to " << totpmts << " pmts." << std::endl;
 
   mc->SetNumPE( npe );
   mc->SetNumDark( ndark );

@@ -10,8 +10,9 @@ RAT_LIBS = -L./../lib -lRATEvent -lrat
 LOCAL_INC = -I. 
 
 
-CFLAGS = -g -fPIC
+CFLAGS = -g -fPIC 
 #CFLAGS = -O3
+#CFLAGS += -std=c++11
 CFLAGS += $(ROOT_INCLUDES) $(RAT_INCLUDES) $(LOCAL_INC)
 LDFLAGS += `root-config --ldflags` 
 LDLIBS = $(RAT_LIBS) $(ROOT_LIBS) -lstdc++
@@ -27,13 +28,16 @@ kptrigger.o: kptrigger.cc kptrigger.h
 pmtinfo.o: pmtinfo.cc pmtinfo.hh
 	$(CC) $(CFLAGS) -c -o $@ pmtinfo.cc
 
+kpdaq.o: kpdaq.cc kpdaq.h
+	$(CC) $(CFLAGS) -c -o $@ kpdaq.cc
+
 gen_dark_noise.o: gen_dark_noise.cc gen_dark_noise.hh
 	$(CC) $(CFLAGS) -c -o $@ gen_dark_noise.cc
 
 prefitz.o: prefitz.cc prefitz.hh
 	$(CC) $(CFLAGS) -c -o $@ prefitz.cc
 
-libkptrigger.so: kptrigger.o pmtinfo.o gen_dark_noise.o prefitz.o
+libkptrigger.so: kptrigger.o pmtinfo.o gen_dark_noise.o prefitz.o kpdaq.o
 	$(CC) $(LDFLAGS) -shared -o $@ $^ $(LDLIBS)
 	cp $@ ../lib/
 
