@@ -58,12 +58,6 @@ int main( int nargs, char** argv ) {
   int nodsipms_per_hoop[5] = { 0, 10, 10, 50, 100 };
   const int NPMTS = 90000+nodpmts[trig_version];
 
-  double veto_threshold1_sidehoops = 37.0;
-  double veto_threshold2_sidehoops = 42.0;
-  double veto_threshold1_endhoops  = 37.0;
-  double veto_threshold2_endhoops  = 42.0;
-  double hoop_coincidence_window_ns = 10.0;
-
   int num_id_hoop_neighbors = 4;
   int num_id_hoop_sum = 100;
 
@@ -150,7 +144,9 @@ int main( int nargs, char** argv ) {
   int npulses_veto = 0;
   double prefit_z_cm = 0;
   double pulse_totodpe = 0.0;
-  // inner pipe varso
+  double twfm_integral = 0;
+  double twfm_veto_integral = 0;
+  // inner pipe vars
   std::vector<double> ttrig;
   std::vector<double> tpeak;
   std::vector<double> peakamp;
@@ -217,8 +213,10 @@ int main( int nargs, char** argv ) {
   tree->Branch( "pulsez_veto",  &pulsez_veto );
   tree->Branch( "ttrig_veto",  &ttrig_veto );
   tree->Branch( "tend_veto",  &tend_veto );
-  tree->Branch( "twfm", &twfm );
-  tree->Branch( "twfm_veto", &twfm_veto );
+  tree->Branch( "twfm_integral", &twfm_integral, "twfm_integral/D" );
+  tree->Branch( "twfm_veto_integral", &twfm_veto_integral, "twfm_veto_integral/D" );
+  //tree->Branch( "twfm", &twfm );
+  //tree->Branch( "twfm_veto", &twfm_veto );
   // cosmic truth
   if ( cry_mode ) {
     tree->Branch( "ncr_photons",  &ncr_photons, "ncr_photons/I" );
@@ -281,6 +279,8 @@ int main( int nargs, char** argv ) {
     pulsez.clear();
     twfm.clear();
     twfm_veto.clear();
+    twfm_integral = 0;
+    twfm_veto_integral = 0;
     // veto pulses
     pulsepe_veto.clear();
     pulsez_veto.clear();
@@ -556,6 +556,9 @@ int main( int nargs, char** argv ) {
 			     false, 0, 0,
 			     n_decay_constants, decay_weights, decay_constants_ns,
 			     pulselist, 90000, false, trig_version );
+    for ( std::vector<double>::iterator itwfm=twfm.begin(); itwfm!=twfm.end(); itwfm++ )
+      twfm_integral += *itwfm;
+
     if ( npulses>0 ) {
       int min_hoopid = maxhoop - num_id_hoop_sum;
       int max_hoopid = maxhoop + num_id_hoop_sum;
@@ -736,6 +739,9 @@ int main( int nargs, char** argv ) {
 				  false, 0, 0,
 				  n_decay_constants_veto, decay_weights_veto, decay_constants_ns_veto,
 				  pulselist_veto, 90000, true, trig_version );
+    for ( std::vector<double>::iterator itwfm=twfm_veto.begin(); itwfm!=twfm_veto.end(); itwfm++ )
+      twfm_veto_integral += *itwfm;
+
     if ( npulses_veto>0 ) {
 //       int min_hoopid = maxhoop - num_id_hoop_sum;
 //       int max_hoopid = maxhoop + num_id_hoop_sum;
@@ -753,24 +759,21 @@ int main( int nargs, char** argv ) {
 //       daq.getChannelPos( maxhoop, &maxhoop_pos[0] );
     std::cout << "  OD npulses=" << npulses_veto << std::endl;
     
-    for ( KPPulseListIter it=pulselist_veto.begin(); it!=pulselist_veto.end(); it++ )
+    pulse_totodpe = 0.0;
+    for ( KPPulseListIter it=pulselist_veto.begin(); it!=pulselist_veto.end(); it++ ) {
       std::cout << "    - tstart=" << (*it)->tstart 
 		<< " tpeak=" << (*it)->tpeak 
 		<< " tend=" << (*it)->tend
 		<< " pe=" << (*it)->pe << " (dark=" << (*it)->pe_dark << ", adjusted=" << (*it)->pe_adjusted << ") z=" << (*it)->z << std::endl;
+      pulse_totodpe += (*it)->pe_adjusted;
+      pulsepe_veto.push_back( (*it)->pe_adjusted );
+      pulsez_veto.push_back(  (*it)->z );
+      ttrig_veto.push_back(  (*it)->tstart );
+      tend_veto.push_back(  (*it)->tend );
+      delete *it;
+      *it = NULL;
+    }
     
-//     for ( KPPulseListIter it=pulselist.begin(); it!=pulselist.end(); it++ ) {
-//       ttrig.push_back( (*it)->tstart );
-//       tpeak.push_back( (*it)->tpeak );
-//       tend.push_back( (*it)->tend );
-//       peakamp.push_back( (*it)->peakamp );
-//       pulseperaw.push_back( (*it)->pe ); 
-//       pulsepedark.push_back( (*it)->pe_dark ); 
-//       pulsepe.push_back( (*it)->pe_adjusted ); 
-//       pulsez.push_back( (*it)->z ); 
-//       delete *it;
-//       *it = NULL;
-//     }
     //std::cout << "  Total OD pulse pe: " << pulse_totodpe << " (vs. pre pe " << predark_odpe <<")" << std::endl;
 
     // ==================================================================================================================
