@@ -14,7 +14,8 @@ search_window = 250.0e-9 # ns
 #folder="veto_wdark_v3"
 #folder="veto_wdark_v3_10mhz"
 #folder="veto_wdark_v3_10mhz_oldalg"
-folder="veto_wdark_v4_10mhz"
+#folder="veto_wdark_v4_10mhz"
+folder="veto_wdark_v4_1.6mhz"
 
 os.system("mkdir -p figs/%s/eps"%(folder))
 
@@ -45,6 +46,9 @@ elif folder=="veto_wdark_v3_10mhz_oldalg":
 elif folder=="veto_wdark_v4_10mhz":
     tf = TFile("crana_merged_wdarknoise_0_2000_v4_10mhz.root") # darknoise
     elasped_tim = 1.07652645625
+elif folder=="veto_wdark_v4_1.6mhz":
+    tf = TFile("crana_merged_wdarknoise_0_2000_v4_1.6mhz.root") # darknoise
+    elasped_tim = 1.12239146014
 else:
     print "wrong file type",folder
     sys.exit(-1)
@@ -54,8 +58,8 @@ scale = 1.0/elasped_time
 #scale = 1.0
 pe_scale = 4500.0/8500.0
 mcdata.SetAlias("pescale","4500.0/8500.0")
-mcdata.SetAlias("standard_cuts","npulses==2 && abs(pulsez[0]-pulsez[1])<200.0 && pulsepe[0]*pescale>200 && pulsepe[0]*pescale<1300 && pulsepe[1]*pescale>100.0 && pulsepe[1]*pescale<800.0 && pulse_totodpe*pescale<=0")
-mcdata.SetAlias("nood_cuts",    "npulses==2 && abs(pulsez[0]-pulsez[1])<200.0 && pulsepe[0]*pescale>200 && pulsepe[0]*pescale<1300 && pulsepe[1]*pescale>100.0 && pulsepe[1]*pescale<800.0")
+mcdata.SetAlias("standard_cuts","npulses==2 && abs(pulsez[0]-pulsez[1])<200.0 && pulsepe[0]*pescale>600 && pulsepe[0]*pescale<1300 && pulsepe[1]*pescale>200.0 && pulsepe[1]*pescale<800.0 && pulse_totodpe*pescale<=0")
+mcdata.SetAlias("nood_cuts",    "npulses==2 && abs(pulsez[0]-pulsez[1])<200.0 && pulsepe[0]*pescale>600 && pulsepe[0]*pescale<1300 && pulsepe[1]*pescale>200.0 && pulsepe[1]*pescale<800.0")
 mcdata.SetAlias("nobounds_cuts","pulsepe[0]*pescale>10.0 && pulsepe[1]*pescale>5.0 && abs(pulsez[0]-pulsez[1])<200.0")
 
 

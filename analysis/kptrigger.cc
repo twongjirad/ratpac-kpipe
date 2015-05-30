@@ -339,7 +339,7 @@ void assign_pulse_charge( RAT::DS::MC* mc, std::string pmtinfofile, KPPulseList&
   }
 
   PMTinfo* pmtinfo = PMTinfo::GetPMTinfo( pmtinfofile );
-  double integration_window = decay_const_ns*2.5;
+  double integration_window = decay_const_ns*3.0;
   double dark_ave_side = nsipms_per_hoop_side*(darkrate_hz*1.0e-9)*integration_window;
   double dark_ave_end  = nsipms_per_hoop_endcap*(darkrate_hz*1.0e-9)*integration_window;
 

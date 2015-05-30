@@ -232,9 +232,9 @@ int main( int nargs, char** argv ) {
   }
 
 
-  int ievent = 0;
+  int ievent = 8;
   int nevents = ds->GetTotal();
-  //nevents = 20;
+  nevents = 11;
 
   KPPulseList pulselist;
   KPPulseList pulselist_veto;
@@ -569,7 +569,7 @@ int main( int nargs, char** argv ) {
 			   sipm_darkrate_hz,
 			   true, min_hoopid, max_hoopid,
 			   60.0, 90000, nodsipms_per_hoop[trig_version], nod_sipms_per_hoop_endcap,
-			   false );
+			   false, trig_version );
     }
     float maxhoop_pos[3] = { 0 };
     if ( npulses>0 )
@@ -743,16 +743,16 @@ int main( int nargs, char** argv ) {
       twfm_veto_integral += *itwfm;
 
     if ( npulses_veto>0 ) {
-//       int min_hoopid = maxhoop - num_id_hoop_sum;
-//       int max_hoopid = maxhoop + num_id_hoop_sum;
-//       if ( min_hoopid<0 ) min_hoopid = 0;
-//       if ( max_hoopid>=daq.getNIDChannels() ) max_hoopid = daq.getNIDChannels()-1;
-
-      assign_pulse_charge( mc, pmtinfofile, pulselist, 
+      int min_hoopid = veto_maxhoop - 5;
+      int max_hoopid = veto_maxhoop + 5;
+      if ( min_hoopid<0 ) min_hoopid = 0;
+      if ( max_hoopid-daq.getNIDChannels()>=daq.getNODChannels() ) max_hoopid = daq.getNODChannels()-1;
+      
+      assign_pulse_charge( mc, pmtinfofile, pulselist_veto, 
 			   sipm_darkrate_hz,
-			   false, 0, 0,
+			   true, min_hoopid, max_hoopid,
 			   60.0, 90000, nodsipms_per_hoop[trig_version], nod_sipms_per_hoop_endcap,
-			   true );
+			   true, trig_version );
     }
 //     float maxhoop_pos[3] = { 0 };
 //     if ( npulses>0 )
