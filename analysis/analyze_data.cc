@@ -46,7 +46,7 @@ int main( int nargs, char** argv ) {
   int n_decay_constants = 2;
   double window_ns = 50.0;
   double window_ns_veto = 40.0;
-  double decay_weights[2] = { 0.6, 0.4 };
+  double decay_weights[2] = { 0.0, 1.0 };
   double decay_constants_ns[2] = { 45.0, 67.6 };
   int n_decay_constants_veto = 1;
   double decay_weights_veto[1] = { 1.0 };
@@ -215,8 +215,8 @@ int main( int nargs, char** argv ) {
   tree->Branch( "tend_veto",  &tend_veto );
   tree->Branch( "twfm_integral", &twfm_integral, "twfm_integral/D" );
   tree->Branch( "twfm_veto_integral", &twfm_veto_integral, "twfm_veto_integral/D" );
-  //tree->Branch( "twfm", &twfm );
-  //tree->Branch( "twfm_veto", &twfm_veto );
+  tree->Branch( "twfm", &twfm );
+  tree->Branch( "twfm_veto", &twfm_veto );
   // cosmic truth
   if ( cry_mode ) {
     tree->Branch( "ncr_photons",  &ncr_photons, "ncr_photons/I" );
@@ -232,9 +232,9 @@ int main( int nargs, char** argv ) {
   }
 
 
-  int ievent = 8;
+  int ievent = 242;
   int nevents = ds->GetTotal();
-  nevents = 11;
+  nevents = 243;
 
   KPPulseList pulselist;
   KPPulseList pulselist_veto;
@@ -451,7 +451,7 @@ int main( int nargs, char** argv ) {
     double expected_darkrate = 100*(sipm_darkrate_hz*1.0e-9)*window_ns*( nhoops_group ); // in channel
     double sig_darkrate = sqrt( expected_darkrate );
     //if ( expected_darkrate>10.0 )
-    threshold = expected_darkrate + 5.0*sig_darkrate;
+    threshold = expected_darkrate + 4.0*sig_darkrate;
 //     else
 //       threshold = 10;
     if ( sipm_darkrate_hz== 0 )
@@ -508,6 +508,11 @@ int main( int nargs, char** argv ) {
 	std::cout << " tpeak=" << (*itp)->tpeak << " pe=" << ppe-ppe_dark  << " (dark=" << ppe_dark << "+/-" << sqrt(ppe_dark) << "), ";
 #endif
 	ich_p++;
+      }// end of loop over pulses in channel
+
+      if ( chpe>maxhoop_pe ) {
+	maxhoop_pe = chpe;
+	maxhoop = ich;
       }
 
       npre_pulses += ch_npulses;
@@ -516,11 +521,16 @@ int main( int nargs, char** argv ) {
 #endif
     }
     std::cout << "Number of ID channel pulses: " << npre_pulses << std::endl;
+    std::cout << "Max channel: " << maxhoop << std::endl;
 
     // merge regions of interested based on pulses into one waveform
     twfm.assign(10000, 0.0);
     for ( std::map< int, KPPulseList* >::iterator it=idch_pulse_list.begin(); it!=idch_pulse_list.end(); it++ ) {
       int ich = (*it).first;
+
+      if ( abs(maxhoop-ich)>50 )
+	continue;
+
       double chpe = 0.0;
       if ( (*it).second->size()>0 ) {
 	for ( KPPulseListIter pit=(*it).second->begin(); pit!=(*it).second->end(); pit++ ) {
