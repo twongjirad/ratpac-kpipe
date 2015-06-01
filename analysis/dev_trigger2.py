@@ -35,6 +35,7 @@ window = 20
 tave = window
 darkrate = 1.6e6
 nfalling = 3
+nabove = 3
 nsipms = 100.0*100
 nexp_dark = darkrate*1.0e-9*window*nsipms
 staterr = sqrt(nexp_dark)
@@ -71,11 +72,16 @@ for iev in xrange(0,nevents):
     print "  posv: R=", mcdata.rv," Z=",mcdata.zv
     print "  visible energy: ",mcdata.mumomv+mcdata.totkeprotonv," MeV"," mu=",mcdata.mumomv," proton=",mcdata.totkeprotonv
     print "  full window dark noise ",darkrate*1.0e-9*nsipms*10.0e3," vs. integral=",ht.Integral()
-
+    print "  c++ result: id pulses=",mcdata.npulses," od pulses=",mcdata.npulses_veto
+    print "  thresh (ave): ",thresh/float(window)
+    for i in xrange(0,mcdata.npulses):
+        print " ",i,") t=",mcdata.ttrig[i]," pe=",mcdata.pulsepe[i]
+    
     # Analyze
     pulses = {}
     npulses = 0
     active_pulses = []
+    bins_above = 0
     for ibin in xrange(window,ht.GetNbinsX()):
 
         # sum up events in window
@@ -102,14 +108,21 @@ for iev in xrange(0,nevents):
             # looking for new pulse
             #if ave_window*window>thresh:
             if ( use_ave==False and hits_window>(thresh)) or ( use_ave and ave_window>(thresh/float(window))):
-                # start new pulse
-                active_pulses.append( npulses )
-                ll = float(hits_window)
-                if use_ave:
-                    ll = ave_window                
-                pulses[ npulses ] = { "tstart":ibin, "nhits":hits_window, "end":False, "last_level":ll, "nfalling":0,"tlast":0 }
-                print "PULSE FOUND (",npulses,"): ",ibin,hits_window
-                npulses += 1
+                if bins_above<nabove:
+                    bins_above += 1
+                else:
+                    # start new pulse
+                    active_pulses.append( npulses )
+                    ll = float(hits_window)
+                    if use_ave:
+                        ll = ave_window                
+                    pulses[ npulses ] = { "tstart":ibin, "nhits":hits_window, "end":False, "last_level":ll, "nfalling":0,"tlast":ibin }
+                    print "PULSE FOUND (",npulses,"): ",ibin,hits_window
+                    npulses += 1
+                    bins_above = 0
+            else:
+                # drops below
+                bins_above = 0
             hthresh.SetBinContent( ibin, thresh )
             hthresh_ave.SetBinContent( ibin, thresh/float(window) )
         else:
@@ -140,7 +153,7 @@ for iev in xrange(0,nevents):
                     peaks_sum_ave +=  (pulses[pulse]["peak_ave"])
                     #expecthits_ave = (pulses[pulse]["peak"])
                     #mod_thresh_ave += expecthits_ave + 3.0*sqrt(expecthits_ave)
-                    mod_thresh_ave += expecthits_ave + 4.0*staterr/float(window)
+                    mod_thresh_ave += expecthits_ave + 4.0*(staterr/float(window)) + sqrt(expecthits_ave)
                     pe_expect += expecthits
                     pe_expect_ave += expecthits_ave
             mod_thresh_ave = max( mod_thresh_ave,  thresh/float(window) )
@@ -149,14 +162,21 @@ for iev in xrange(0,nevents):
             # second pulse thresh
             #if hits_window/float(window)>mod_thresh:
             if onerising==False and ( (use_ave==False and hits_window>mod_thresh) or ( use_ave and ave_window>mod_thresh_ave) ):
-                # start new pulse
-                active_pulses.append( npulses )
-                ll = float(hits_window)
-                if use_ave:
-                    ll = ave_window
-                pulses[ npulses ] = { "tstart":ibin, "nhits":hits_window, "end":False, "last_level":ll, "nfalling":0 }
-                print "PULSE FOUND (",npulses,") (overlap): ",ibin,hits_window,mod_thresh," rising=",onerising
-                npulses += 1
+                if bins_above<nabove:
+                    bins_above += 1
+                else:
+                    # start new pulse
+                    active_pulses.append( npulses )
+                    ll = float(hits_window)
+                    if use_ave:
+                        ll = ave_window
+                    pulses[ npulses ] = { "tstart":ibin, "nhits":hits_window, "end":False, "last_level":ll, "nfalling":0 }
+                    print "PULSE FOUND (",npulses,") (overlap): ",ibin,hits_window,mod_thresh," rising=",onerising
+                    npulses += 1
+                    bins_above = 0
+            else:
+                bins_above = 0
+                
             #if onefall:
             #    print "   mod thresh: ",mod_thresh, "hit_win/win=",float(hits_window)/float(window)," ave_win=",ave_window
 
@@ -179,8 +199,8 @@ for iev in xrange(0,nevents):
                         print "Found peak: ",ibin-window
                         #pulses[pulse]["tpeak"] = ibin-nfalling
                         pulses[pulse]["tpeak"] = pulses[pulse]["tlast"]
-                        pulses[pulse]["peak"] = float(hits_window)
-                        pulses[pulse]["peak_ave"] = ave_window
+                        pulses[pulse]["peak"] = pulses[pulse]["last_level"]*window #float(hits_window) 
+                        pulses[pulse]["peak_ave"] = pulses[pulse]["last_level"] # ave win
                 else:
                     if ibin >pulses[pulse]["tpeak"]+8*decay_const:
                         print "End of pulse %d found: "%(pulse),ibin

@@ -59,6 +59,14 @@ int find_trigger3( std::vector<double>& tbins,
 		   bool time_cut, double min_time, double max_time,
 		   int n_decay_constants, double decay_weights[], double decay_constants_ns[], 
 		   KPPulseList& pulses, int first_od_sipmid, bool veto, int version );
+
+int find_trigger4( std::vector<double>& tbins,
+		   double window_ns, double sigfactor,
+		   double orig_window_ns, double darkrate_hz, int nhoops,
+		   int n_decay_constants, double decay_weights[], double decay_constants_ns[], 
+		   KPPulseList& pulses );
+
+
 void assign_pulse_charge( RAT::DS::MC* mc, std::string pmtinfo, KPPulseList& pulselist, 
 			  double darkrate_hz,
 			  bool hoop_cut, double min_hoop, double max_hoop,

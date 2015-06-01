@@ -2,6 +2,7 @@
 #include <iostream>
 #include <ctime>
 #include <assert.h>
+#include <algorithm>
 #include "pmtinfo.hh"
 #include "TRandom3.h"
 
@@ -178,10 +179,6 @@ int find_trigger( RAT::DS::MC* mc,
     }
     ave_window = double(nhits_window)/double(windowbins);
 
-    // expectations
-    std::vector<double> pulse_expectation;
-    pulse_expectation.resize( pulses.size() );
-
     // Check for new pulse
     if ( nactive==0 ) {
       // no active pulses. do search based on hits ver threshold of moving window
@@ -206,7 +203,7 @@ int find_trigger( RAT::DS::MC* mc,
       if ( use_ave )
 	modthresh = threshold/double(windowbins);
       bool allfalling = true;
-      int ipulse = 0;
+
       for ( KPPulseListIter it=pulses.begin(); it!=pulses.end(); it++ ) {
 	if ( (*it)->fStatus==KPPulse::kRising ) {
 	  // have a rising peak. will block creation of new pulse.
@@ -215,7 +212,6 @@ int find_trigger( RAT::DS::MC* mc,
 	    modthresh += 2.0*nhits_window;
 	  else
 	    modthresh += 2.0*ave_window;
-	  pulse_expectation.at(ipulse) = modthresh;
 	}
 	else {
 	  // for pulses considered falling, we modify the threshold to be 3 sigma (roughly) above
@@ -231,9 +227,7 @@ int find_trigger( RAT::DS::MC* mc,
 	  else
 	    expectation = ((*it)->peakamp)*exp( -arg );
 	  modthresh += ( expectation + 3.0*sqrt(expectation) );
-	  pulse_expectation.at(ipulse) = expectation;
 	}
-	ipulse++;
       }//end of loop over pulses
 
 //       if ( veto )
@@ -247,13 +241,11 @@ int find_trigger( RAT::DS::MC* mc,
         apulse->fStatus = KPPulse::kRising; // start of rising edge (until we find max) 
 	apulse->last_max = ave_window;
 	pulses.push_back( apulse );
-	pulse_expectation.push_back( threshold/windowbins*10 );
         npulses++;
 	//std::cout << "  new pulse!" << std::endl;
       }
 
       // now we find max of rising pulses and end of falling pulses
-      ipulse = 0;
       for ( KPPulseListIter it=pulses.begin(); it!=pulses.end(); it++ ) {
 	KPPulse* apulse = *it;
 	if ( apulse->fStatus==KPPulse::kDefined )
@@ -279,13 +271,11 @@ int find_trigger( RAT::DS::MC* mc,
 	  double decay_constant = 0.0;
 	  for (int idcy=0; idcy<n_decay_constants; idcy++)
 	    decay_constant += decay_weights[idcy]*decay_constants_ns[idcy];
-	  //if (  (pulse_expectation.at(ipulse) <= (threshold/float(windowbins)) ) || ((ibin-windowbins)*nspertic > apulse->tpeak + 10*decay_constant) ) {
 	  if ( ((ibin-windowbins)*nspertic > apulse->tpeak + 10*decay_constant) ) {
 	    apulse->tend = (ibin-windowbins)*nspertic;
 	    apulse->fStatus=KPPulse::kDefined;
 	  }
 	}
-	ipulse++;
       }//end of loop over pulses
     }//end of active pulse condition
     
@@ -691,5 +681,190 @@ int find_trigger2( const KPDAQ& daq,
 			       time_cut, min_time, max_time,
 			       n_decay_constants, decay_weights, decay_constants_ns, 
 			       pulses, first_od_sipmid, veto, version );
+  return npulses;
+}
+
+int find_trigger4( std::vector<double>& tbins,
+		   double window_ns, double sigfactor,
+		   double orig_window_ns, double darkrate_hz, int nsipms,
+		   int n_decay_constants, double decay_weights[], double decay_constants_ns[], 
+		   KPPulseList& pulses   ) {
+
+  // For use with background subracted, combined histogram...
+
+  // (1) bin hits out to 20 microseconds.
+  // (2) scan until a bin over threshold
+  // (3) scan until max found: using averaging (-n,+n) bins
+  // (4) adjust threshold level using maxamp*exp(-t/(t0))
+
+  // ------------------------------------------------
+  // INTERNAL PARAMETERS
+  const int nbins = 10000;
+  const double nspertic = 1.0;
+  const int NFALLING = 4;
+  const int NABOVE = 3;
+  int windowbins = (int)window_ns/nspertic;
+  if ( windowbins==0 ) windowbins++;
+
+  // ------------------------------------------------
+  // Find peaks by scanning over averaged waveform
+  int npulses = 0;
+  int bins_above  = 0;
+  for (int ibin=0; ibin<nbins; ibin++ ) {
+
+    // determine window
+    int istart = ibin - windowbins/2;
+    int iend   = ibin + windowbins/2;
+    istart = std::fmax(0,istart);
+    iend   = std::fmin(iend,nbins-1);
+    int windowbins = iend-istart+1;
+
+    // calculate expected background
+    double orig_darknoise = double(nsipms)*(darkrate_hz*1.0e-9)*window_ns;
+    double sig_darknoise = sqrt( orig_darknoise );
+    double sig_darknoise_ave = sqrt( orig_darknoise )/window_ns;
+    
+    // count number active pulses
+    int nactive = 0;
+    for ( KPPulseListIter it=pulses.begin(); it!=pulses.end(); it++ ) {
+      if ( (*it)->fStatus!=KPPulse::kDefined )
+	nactive++;
+    }
+
+    // calc triggering quantities
+    double ave_window = 0.;
+    for (int i=istart; i<=iend; i++) {
+      ave_window += tbins.at(i);
+    }
+    ave_window /= double(iend-istart+1);
+
+    double threshold  = 0; // changes on situation
+
+    // Check for new pulse
+    if ( nactive==0 ) {
+      threshold = sigfactor*sig_darknoise_ave;
+      // no active pulses. do search based on hits ver threshold of moving window
+      if ( ave_window>threshold ) {
+	if ( bins_above>=NABOVE ) {
+	  // make a new pulse!
+	  KPPulse* apulse = new KPPulse;
+	  apulse->tstart = ibin*nspertic;
+	  apulse->fStatus = KPPulse::kRising; // start of rising edge (until we find max)
+	  apulse->last_max = ave_window;
+	  apulse->tpeak = ibin*nspertic;
+	  apulse->petrig = ave_window*windowbins;
+	  pulses.push_back( apulse );
+	  npulses++;
+	  bins_above = 0;
+	  std::cout << "new pulse (active=0) ave=" << ave_window << " threshold=" << threshold << std::endl;
+	}
+	else
+	  bins_above++;
+      }
+      else {
+	// below threshold
+	bins_above = 0;
+      }
+    }
+    else {
+      // we have active pulses. we look for a second peak with a trigger algorithm that accounts for scintillator decay time
+
+      // find modified threshold
+      bool allfalling = true;
+      double expectation = 0;
+      for ( KPPulseListIter it=pulses.begin(); it!=pulses.end(); it++ ) {
+	if ( (*it)->fStatus==KPPulse::kRising ) {
+	  // have a rising peak. will block creation of new pulse.
+	  allfalling = false;
+	  expectation += 2.0*ave_window;
+	}
+	else {
+	  // for pulses considered falling, we modify the threshold to be 3 sigma (roughly) above
+	  double arg = 0.0;
+	  for (int idcy=0; idcy<n_decay_constants; idcy++) {
+	    arg += decay_weights[idcy]*( ibin*nspertic - (*it)->tpeak )/decay_constants_ns[idcy];
+	  }
+	  // calc expectation for bin: note 'peakamp' is always ave of hits in window
+	  expectation += ((*it)->peakamp)*exp( -arg );
+	}
+
+      }//end of loop over pulses
+
+      threshold = expectation + sqrt(expectation) + sigfactor*sig_darknoise_ave; // apply dark noise
+
+      // apply threshold
+      if ( allfalling && ave_window>threshold ) {
+	if ( bins_above>=NABOVE ) {
+	  // new pulse! (on top of other pulse)
+	  KPPulse* apulse = new KPPulse;
+	  apulse->tstart = ibin*nspertic;
+	  apulse->fStatus = KPPulse::kRising; // start of rising edge (until we find max) 
+	  apulse->last_max = ave_window;
+	  apulse->tpeak = ibin*nspertic;
+	  pulses.push_back( apulse );
+	  npulses++;
+	  bins_above = 0;
+	  std::cout << "new pulse (active=" << nactive << ") ave=" << ave_window << " threshold=" << threshold << std::endl;
+	}
+	else {
+	  bins_above++;
+	}
+      }
+      else {
+	// below threshold
+	bins_above = 0;
+      }
+
+      // for existing pulses, now we find max of rising pulses and end of falling pulses
+
+      for ( KPPulseListIter it=pulses.begin(); it!=pulses.end(); it++ ) {
+	KPPulse* apulse = *it;
+	if ( apulse->fStatus==KPPulse::kDefined )
+	  continue; // skip completed pulses
+
+	if ( apulse->fStatus==KPPulse::kRising ) {
+	  if ( ave_window < apulse->last_max )
+	    apulse->nfallingbins += 1;
+	  else {
+	    apulse->nfallingbins = 0;
+	    if ( ave_window>apulse->last_max ) {
+	      apulse->last_max = ave_window;
+	      apulse->tpeak = ibin*nspertic;
+	    }
+	  }
+
+	  if ( apulse->nfallingbins>NFALLING ) {
+	    // found our max
+	    apulse->fStatus = KPPulse::kFalling;
+	    apulse->peakamp = apulse->last_max; // note, always uses averages
+	  }
+	}//end of if rising
+	else if ( apulse->fStatus==KPPulse::kFalling ) {
+	  double decay_constant = 0.0;
+	  for (int idcy=0; idcy<n_decay_constants; idcy++)
+	    decay_constant += decay_weights[idcy]*decay_constants_ns[idcy];
+	  if ( ibin*nspertic > apulse->tpeak + 10*decay_constant) {
+	    apulse->tend = ibin*nspertic;
+	    apulse->fStatus=KPPulse::kDefined;
+	  }
+	}
+	
+      }//end of loop over pulses
+    }//end of active pulse condition
+    
+  }//end of scan over timing histogram
+  
+  // save unclosed pulses
+  for ( KPPulseListIter it=pulses.begin(); it!=pulses.end(); it++ ) {
+    KPPulse* apulse = *it;
+    if ( apulse->fStatus!=KPPulse::kDefined ) {
+      if ( apulse->fStatus==KPPulse::kRising ){
+	apulse->peakamp = apulse->last_max;
+	apulse->tend  = nbins*nspertic;
+      }
+      apulse->fStatus = KPPulse::kDefined;
+    }
+  }
+  
   return npulses;
 }

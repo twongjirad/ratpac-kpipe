@@ -233,9 +233,9 @@ int main( int nargs, char** argv ) {
   }
 
 
-  int ievent = 42;
+  int ievent = 0;
   int nevents = ds->GetTotal();
-  nevents = 43;
+  //nevents = 100;
 
   KPPulseList pulselist;
   KPPulseList pulselist_veto;
@@ -455,7 +455,7 @@ int main( int nargs, char** argv ) {
 
     if ( sipm_darkrate_hz== 0 )
       threshold = 0.5;
-    std::cout << "Total hoops in a group that are searched: " << 
+    std::cout << "Total hoops in a group that are searched: " << ncoinhoops << std::endl;
     std::cout << "Expected Dark Rate: " << expected_darkrate << " +/-  " << sig_darkrate << std::endl;
     std::cout << "Threshold set to " << threshold << std::endl;
 
@@ -566,11 +566,11 @@ int main( int nargs, char** argv ) {
     }//end of loop over channels and pulselist
 
     // look for final pulses
-    npulses = find_trigger3( twfm,
-			     threshold, window_ns_veto, sipm_darkrate_hz,
-			     false, 0, 0,
+    npulses = find_trigger4( twfm,
+			     0.5*window_ns, 3.0, //IDsigma_threshold,
+			     window_ns, sipm_darkrate_hz, ncoinhoops*100,
 			     n_decay_constants, decay_weights, decay_constants_ns,
-			     pulselist, 90000, false, trig_version );
+			     pulselist );
     for ( std::vector<double>::iterator itwfm=twfm.begin(); itwfm!=twfm.end(); itwfm++ )
       twfm_integral += *itwfm;
 
