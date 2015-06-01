@@ -43,14 +43,14 @@ int main( int nargs, char** argv ) {
 
   RAT::DSReader* ds = new RAT::DSReader( inputfile.c_str() ); 
   int first_od_sipmid = 90000;
-  int n_decay_constants = 2;
+  int n_decay_constants = 3;
   double window_ns = 40.0;
   double window_ns_veto = 40.0;
-  double decay_weights[2] = { 0.0, 1.0 };
-  double decay_constants_ns[2] = { 45.0, 67.6 };
-  int n_decay_constants_veto = 1;
-  double decay_weights_veto[1] = { 1.0 };
-  double decay_constants_ns_veto[1] = { 50.0 };
+  double decay_weights[3] = { 0.5, 0.2, 0.3 };
+  double decay_constants_ns[3] = { 30.0, 90.0, 400.0 };
+  int n_decay_constants_veto = 3;
+  double decay_weights_veto[3] = { 0.5, 0.2, 0.3 };
+  double decay_constants_ns_veto[3] = { 30.0, 90.0, 400.0 };
   int trig_version = 4;
   int nod_sipms_per_hoop_endcap = 100;
   int nodpmts[5] = {0,1200,1200,5200,10200}; 
@@ -62,8 +62,8 @@ int main( int nargs, char** argv ) {
   int num_id_hoop_sum = 100;
   double hoop_coincidence_window = 10;
 
-  double sipm_darkrate_hz = 1.6e6;
-  //double sipm_darkrate_hz = 0.0;
+  //double sipm_darkrate_hz = 1.6e6;
+  double sipm_darkrate_hz = 0.0;
 
   double IDsigma_threshold = 4.0;
   double ODsigma_threshold = 4.0;
@@ -235,7 +235,7 @@ int main( int nargs, char** argv ) {
 
   int ievent = 0;
   int nevents = ds->GetTotal();
-  //nevents = 100;
+  //nevents = 200;
 
   KPPulseList pulselist;
   KPPulseList pulselist_veto;

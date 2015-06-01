@@ -701,9 +701,9 @@ int find_trigger4( std::vector<double>& tbins,
   // INTERNAL PARAMETERS
   const int nbins = 10000;
   const double nspertic = 1.0;
-  const int NFALLING = 4;
-  const int NABOVE = 3;
   int windowbins = (int)window_ns/nspertic;
+  const int NFALLING = int(0.5*windowbins);
+  const int NABOVE = 3;
   if ( windowbins==0 ) windowbins++;
 
   // ------------------------------------------------
@@ -753,6 +753,7 @@ int find_trigger4( std::vector<double>& tbins,
 	  apulse->last_max = ave_window;
 	  apulse->tpeak = ibin*nspertic;
 	  apulse->petrig = ave_window*windowbins;
+	  apulse->nfallingbins = 0;
 	  pulses.push_back( apulse );
 	  npulses++;
 	  bins_above = 0;
@@ -773,6 +774,9 @@ int find_trigger4( std::vector<double>& tbins,
       bool allfalling = true;
       double expectation = 0;
       for ( KPPulseListIter it=pulses.begin(); it!=pulses.end(); it++ ) {
+	if ( (*it)->fStatus==KPPulse::kDefined )
+	  continue;
+
 	if ( (*it)->fStatus==KPPulse::kRising ) {
 	  // have a rising peak. will block creation of new pulse.
 	  allfalling = false;
@@ -790,7 +794,7 @@ int find_trigger4( std::vector<double>& tbins,
 
       }//end of loop over pulses
 
-      threshold = expectation + sqrt(expectation) + sigfactor*sig_darknoise_ave; // apply dark noise
+      threshold = expectation + 2.0*sqrt(expectation) + sigfactor*sig_darknoise_ave; // apply dark noise
 
       // apply threshold
       if ( allfalling && ave_window>threshold ) {
@@ -801,6 +805,8 @@ int find_trigger4( std::vector<double>& tbins,
 	  apulse->fStatus = KPPulse::kRising; // start of rising edge (until we find max) 
 	  apulse->last_max = ave_window;
 	  apulse->tpeak = ibin*nspertic;
+          apulse->petrig = ave_window*windowbins;
+          apulse->nfallingbins = 0;
 	  pulses.push_back( apulse );
 	  npulses++;
 	  bins_above = 0;
@@ -828,6 +834,7 @@ int find_trigger4( std::vector<double>& tbins,
 	  else {
 	    apulse->nfallingbins = 0;
 	    if ( ave_window>apulse->last_max ) {
+	      // move the peak
 	      apulse->last_max = ave_window;
 	      apulse->tpeak = ibin*nspertic;
 	    }
@@ -840,6 +847,7 @@ int find_trigger4( std::vector<double>& tbins,
 	  }
 	}//end of if rising
 	else if ( apulse->fStatus==KPPulse::kFalling ) {
+
 	  double decay_constant = 0.0;
 	  for (int idcy=0; idcy<n_decay_constants; idcy++)
 	    decay_constant += decay_weights[idcy]*decay_constants_ns[idcy];
@@ -847,6 +855,7 @@ int find_trigger4( std::vector<double>& tbins,
 	    apulse->tend = ibin*nspertic;
 	    apulse->fStatus=KPPulse::kDefined;
 	  }
+
 	}
 	
       }//end of loop over pulses
