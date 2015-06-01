@@ -23,23 +23,23 @@ fin = ROOT.TFile( inputfile )
 mcdata = fin.Get( "mcdata" )
 nevents = mcdata.GetEntries()
 twfm = ROOT.vector('double')()
-#mcdata.SetBranchAddress('twfm',twfm)
-mcdata.SetBranchAddress('twfm_veto',twfm)
+mcdata.SetBranchAddress('twfm',twfm)
+#mcdata.SetBranchAddress('twfm_veto',twfm)
 
 out = ROOT.TFile('output_test.root','recreate')
 
 c = ROOT.TCanvas('c','',800,1200)
 c.Divide(1,3)
 
-window = 40
-tave = 40
-darkrate = 11.0e6
-#nsipms = 100*100
-nsipms = 50
+window = 20
+tave = window
+darkrate = 1.6e6
+nfalling = 3
+nsipms = 100.0*100
 nexp_dark = darkrate*1.0e-9*window*nsipms
-staterr = sqrt(window*darkrate*1.0e-9*nsipms)
-thresh = nexp_dark + 5.0*staterr
-decay_const = 30
+staterr = sqrt(nexp_dark)
+thresh = 4.0*staterr
+decay_const = 1.0*45+0.0*67
 use_ave = True
 print "Expected dark rate in window: ",nexp_dark,"+/-",staterr
 print "thresh: ",thresh
@@ -86,15 +86,17 @@ for iev in xrange(0,nevents):
         # average hits per bin in window
         ave_window = 0.0
         nbinsum = 0
-        for i in xrange( max(ibin-tave,0), ibin+tave ):
+        for i in xrange( max(int(ibin-0.5*tave),0), min( int(ibin+0.5*tave),ht.GetNbinsX() ) ):
             ave_window += ht.GetBinContent(i+1)
             nbinsum += 1
         ave_window /= float( nbinsum )
         ht2.SetBinContent( ibin, hits_window )
         htave.SetBinContent( ibin, ave_window )
 
-        pe_expect = nexp_dark
-        pe_expect_ave = nexp_dark/float(window)
+        #pe_expect = nexp_dark
+        #pe_expect_ave = nexp_dark/float(window)
+        pe_expect = 0.0
+        pe_expect_ave = 0.0
 
         if len(active_pulses)==0:
             # looking for new pulse
@@ -105,7 +107,7 @@ for iev in xrange(0,nevents):
                 ll = float(hits_window)
                 if use_ave:
                     ll = ave_window                
-                pulses[ npulses ] = { "tstart":ibin, "nhits":hits_window, "end":False, "last_level":ll, "nfalling":0 }
+                pulses[ npulses ] = { "tstart":ibin, "nhits":hits_window, "end":False, "last_level":ll, "nfalling":0,"tlast":0 }
                 print "PULSE FOUND (",npulses,"): ",ibin,hits_window
                 npulses += 1
             hthresh.SetBinContent( ibin, thresh )
@@ -113,9 +115,10 @@ for iev in xrange(0,nevents):
         else:
 
             # look for secondary peak
-            mod_thresh = thresh
-            mod_thresh_ave = thresh/float(window)
+            mod_thresh = 0.0 #thresh
+            mod_thresh_ave = 0.0 #thresh/float(window)
             onerising = False
+            peaks_sum_ave = 0
             for pulse in active_pulses:
                 if "peak" not in pulses[pulse]:
                     # we still have a rising peak. make threshold impossble
@@ -126,16 +129,21 @@ for iev in xrange(0,nevents):
                     pe_expect_ave = ave_window
                 else:
                     expecthits = pulses[pulse]["peak"]*exp( -1.0*( ibin-pulses[pulse]["tpeak"] )/decay_const - 0.0*( ibin-pulses[pulse]["tpeak"] )/120.0 )
+                    expect_sig = sqrt(nexp_dark)
+                    if expecthits<0:
+                        expecthits = 1.0
                     if nexp_dark<5:
-                        mod_thresh += (expecthits + 5.0*sqrt(expecthits))
+                        mod_thresh += (expecthits + 5.0*expect_sig)
                     else:
-                        mod_thresh += (expecthits + 3.0*sqrt(expecthits))
+                        mod_thresh += (expecthits + 3.0*expect_sig)
                     expecthits_ave = (pulses[pulse]["peak_ave"])*exp( -1.0*( ibin-pulses[pulse]["tpeak"] )/decay_const)
+                    peaks_sum_ave +=  (pulses[pulse]["peak_ave"])
                     #expecthits_ave = (pulses[pulse]["peak"])
                     #mod_thresh_ave += expecthits_ave + 3.0*sqrt(expecthits_ave)
-                    mod_thresh_ave += expecthits_ave
+                    mod_thresh_ave += expecthits_ave + 4.0*staterr/float(window)
                     pe_expect += expecthits
                     pe_expect_ave += expecthits_ave
+            mod_thresh_ave = max( mod_thresh_ave,  thresh/float(window) )
             hthresh.SetBinContent( ibin, mod_thresh )
             hthresh_ave.SetBinContent( ibin, mod_thresh_ave )
             # second pulse thresh
@@ -165,10 +173,12 @@ for iev in xrange(0,nevents):
                             pulses[pulse]["last_level"] = float(hits_window)
                         else:
                             pulses[pulse]["last_level"] = ave_window
+                        pulses[pulse]["tlast"] = ibin
 
-                    if pulses[pulse]["nfalling"]>3:
+                    if pulses[pulse]["nfalling"]>nfalling:
                         print "Found peak: ",ibin-window
-                        pulses[pulse]["tpeak"] = ibin-3
+                        #pulses[pulse]["tpeak"] = ibin-nfalling
+                        pulses[pulse]["tpeak"] = pulses[pulse]["tlast"]
                         pulses[pulse]["peak"] = float(hits_window)
                         pulses[pulse]["peak_ave"] = ave_window
                 else:

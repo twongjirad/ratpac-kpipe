@@ -44,7 +44,7 @@ int main( int nargs, char** argv ) {
   RAT::DSReader* ds = new RAT::DSReader( inputfile.c_str() ); 
   int first_od_sipmid = 90000;
   int n_decay_constants = 2;
-  double window_ns = 50.0;
+  double window_ns = 40.0;
   double window_ns_veto = 40.0;
   double decay_weights[2] = { 0.0, 1.0 };
   double decay_constants_ns[2] = { 45.0, 67.6 };
@@ -60,12 +60,13 @@ int main( int nargs, char** argv ) {
 
   int num_id_hoop_neighbors = 4;
   int num_id_hoop_sum = 100;
+  double hoop_coincidence_window = 10;
 
   double sipm_darkrate_hz = 1.6e6;
-  double threshold = 500.0;
   //double sipm_darkrate_hz = 0.0;
-  //double threshold = 10.0;
 
+  double IDsigma_threshold = 4.0;
+  double ODsigma_threshold = 4.0;
 
   // --------------------------------
   // Build DAQ
@@ -232,9 +233,9 @@ int main( int nargs, char** argv ) {
   }
 
 
-  int ievent = 242;
+  int ievent = 42;
   int nevents = ds->GetTotal();
-  nevents = 243;
+  nevents = 43;
 
   KPPulseList pulselist;
   KPPulseList pulselist_veto;
@@ -446,14 +447,12 @@ int main( int nargs, char** argv ) {
     // --------------------------------
     // TRIGGER
     std::cout << "  -- pulse finder -- " << std::endl;
-    int ncoinhoops = 2;
+    int ncoinhoops = 100;
     int nhoops_group = 2*int(ncoinhoops/2)+1;
     double expected_darkrate = 100*(sipm_darkrate_hz*1.0e-9)*window_ns*( nhoops_group ); // in channel
     double sig_darkrate = sqrt( expected_darkrate );
-    //if ( expected_darkrate>10.0 )
-    threshold = expected_darkrate + 4.0*sig_darkrate;
-//     else
-//       threshold = 10;
+    double threshold = expected_darkrate + IDsigma_threshold*sig_darkrate;
+
     if ( sipm_darkrate_hz== 0 )
       threshold = 0.5;
     std::cout << "Total hoops in a group that are searched: " << 
@@ -470,7 +469,7 @@ int main( int nargs, char** argv ) {
     int maxhoop = -1;
     double maxhoop_pe = 0;
     int npre_pulses = 0;
-    for (int ich=1; ich<daq.getNIDChannels()-1; ich ++) {
+    for (int ich=0; ich<daq.getNIDChannels()-1; ich ++) {
       idch_pulse_list[ich] = new KPPulseList;
       int up_ch = ich-ncoinhoops/2;
       int ds_ch = ich+ncoinhoops/2;
@@ -478,6 +477,12 @@ int main( int nargs, char** argv ) {
 	up_ch = 0;
       if ( ds_ch >=daq.getNIDChannels() )
 	ds_ch = daq.getNIDChannels()-1;
+
+      int num_channels = ds_ch-up_ch+1;
+      expected_darkrate = 100*(sipm_darkrate_hz*1.0e-9)*window_ns*num_channels;
+      sig_darkrate = sqrt( expected_darkrate );
+      threshold = expected_darkrate + IDsigma_threshold*sig_darkrate;
+
       int ch_npulses = find_trigger2( daq, 
 				      threshold, window_ns, sipm_darkrate_hz,
 				      up_ch, ds_ch,
@@ -537,16 +542,16 @@ int main( int nargs, char** argv ) {
 
 	  bool fill = false;
 	  // require neighboor cooincidence
-// 	  int jch = ich-1;
-// 	  if ( ich==0 )
-// 	    jch = ich+1;
-// 	  KPPulseList* us_pulses = idch_pulse_list[jch];
-// 	  for (int jpulse=0; jpulse<us_pulses->size(); jpulse++) {
-// 	    if ( fabs( us_pulses->at(jpulse)->tstart-(*pit)->tstart )<5.0 ) {
-// 	      fill = true;
-// 	      break;
-// 	    }
-// 	  }
+	  int jch = ich-1;
+	  if ( ich==0 )
+	    jch = ich+1;
+	  KPPulseList* us_pulses = idch_pulse_list[jch];
+	  for (int jpulse=0; jpulse<us_pulses->size(); jpulse++) {
+	    if ( fabs( us_pulses->at(jpulse)->tstart-(*pit)->tstart )<hoop_coincidence_window ) {
+	      fill = true;
+	      break;
+	    }
+	  }
 	  fill = true;
 	  
 	  if ( fill ) {
@@ -613,10 +618,10 @@ int main( int nargs, char** argv ) {
     int veto_nhoops_group_caps = 1; // except for caps, these analyzed alone
     double veto_expected_darkrate_sides = nodsipms_per_hoop[trig_version]*(sipm_darkrate_hz*1.0e-9)*window_ns_veto*( veto_nhoops_group_sides );
     double veto_sig_darkrate_sides = sqrt( veto_expected_darkrate_sides );
-    double veto_threshold_sides = veto_expected_darkrate_sides + 4.0*veto_sig_darkrate_sides;
+    double veto_threshold_sides = veto_expected_darkrate_sides + ODsigma_threshold*veto_sig_darkrate_sides;
     double veto_expected_darkrate_caps = nod_sipms_per_hoop_endcap*(sipm_darkrate_hz*1.0e-9)*window_ns_veto*veto_nhoops_group_caps;
     double veto_sig_darkrate_caps = sqrt( veto_expected_darkrate_caps );
-    double veto_threshold_caps = veto_expected_darkrate_caps + 4.0*veto_sig_darkrate_caps;
+    double veto_threshold_caps = veto_expected_darkrate_caps + ODsigma_threshold*veto_sig_darkrate_caps;
 
     std::cout << "  OD pulses [thresh: SIDES=" << veto_threshold_sides << ", CAPS=" << veto_threshold_caps << "] "
 	      << " (expected dark rate:"
