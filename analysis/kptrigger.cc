@@ -685,10 +685,10 @@ int find_trigger2( const KPDAQ& daq,
 }
 
 int find_trigger4( std::vector<double>& tbins,
-		   double window_ns, double sigfactor,
+		   double window_ns, double sigfactor,  double min_pulse_width,
 		   double orig_window_ns, double darkrate_hz, int nsipms,
 		   int n_decay_constants, double decay_weights[], double decay_constants_ns[], 
-		   KPPulseList& pulses   ) {
+		   KPPulseList& final_pulses   ) {
 
   // For use with background subracted, combined histogram...
 
@@ -704,7 +704,9 @@ int find_trigger4( std::vector<double>& tbins,
   int windowbins = (int)window_ns/nspertic;
   const int NFALLING = int(0.5*windowbins);
   const int NABOVE = 3;
+  //const double min_pulse_width = 50; //ns
   if ( windowbins==0 ) windowbins++;
+  KPPulseList pulses;
 
   // ------------------------------------------------
   // Find peaks by scanning over averaged waveform
@@ -727,7 +729,7 @@ int find_trigger4( std::vector<double>& tbins,
     // count number active pulses
     int nactive = 0;
     for ( KPPulseListIter it=pulses.begin(); it!=pulses.end(); it++ ) {
-      if ( (*it)->fStatus!=KPPulse::kDefined )
+      if ( (*it)->fStatus!=KPPulse::kDefined && (*it)->fStatus!=KPPulse::kRejected )
 	nactive++;
     }
 
@@ -739,10 +741,12 @@ int find_trigger4( std::vector<double>& tbins,
     ave_window /= double(iend-istart+1);
 
     double threshold  = 0; // changes on situation
-
-    // Check for new pulse
+    double expectation = 0; // calculate for bin
+    
+// Check for new pulse
     if ( nactive==0 ) {
       threshold = sigfactor*sig_darknoise_ave;
+      expectation = ave_window;
       // no active pulses. do search based on hits ver threshold of moving window
       if ( ave_window>threshold ) {
 	if ( bins_above>=NABOVE ) {
@@ -757,7 +761,7 @@ int find_trigger4( std::vector<double>& tbins,
 	  pulses.push_back( apulse );
 	  npulses++;
 	  bins_above = 0;
-	  std::cout << "new pulse (active=0) ave=" << ave_window << " threshold=" << threshold << std::endl;
+	  std::cout << "new pulse @ t=" << ibin*nspertic << " (active=" << nactive << ") ave=" << ave_window << " threshold=" << threshold << std::endl;
 	}
 	else
 	  bins_above++;
@@ -772,9 +776,8 @@ int find_trigger4( std::vector<double>& tbins,
 
       // find modified threshold
       bool allfalling = true;
-      double expectation = 0;
       for ( KPPulseListIter it=pulses.begin(); it!=pulses.end(); it++ ) {
-	if ( (*it)->fStatus==KPPulse::kDefined )
+	if ( (*it)->fStatus==KPPulse::kDefined || (*it)->fStatus==KPPulse::kRejected )
 	  continue;
 
 	if ( (*it)->fStatus==KPPulse::kRising ) {
@@ -810,7 +813,7 @@ int find_trigger4( std::vector<double>& tbins,
 	  pulses.push_back( apulse );
 	  npulses++;
 	  bins_above = 0;
-	  std::cout << "new pulse (active=" << nactive << ") ave=" << ave_window << " threshold=" << threshold << std::endl;
+	  std::cout << "new pulse @ t=" << ibin*nspertic << " (active=" << nactive << ") ave=" << ave_window << " threshold=" << threshold << std::endl;
 	}
 	else {
 	  bins_above++;
@@ -825,8 +828,8 @@ int find_trigger4( std::vector<double>& tbins,
 
       for ( KPPulseListIter it=pulses.begin(); it!=pulses.end(); it++ ) {
 	KPPulse* apulse = *it;
-	if ( apulse->fStatus==KPPulse::kDefined )
-	  continue; // skip completed pulses
+	if ( apulse->fStatus==KPPulse::kDefined || apulse->fStatus==KPPulse::kRejected )
+	  continue; // skip completed or rejected pulses
 
 	if ( apulse->fStatus==KPPulse::kRising ) {
 	  if ( ave_window < apulse->last_max )
@@ -847,15 +850,36 @@ int find_trigger4( std::vector<double>& tbins,
 	  }
 	}//end of if rising
 	else if ( apulse->fStatus==KPPulse::kFalling ) {
+	  
+	  // we look for the end
 
 	  double decay_constant = 0.0;
 	  for (int idcy=0; idcy<n_decay_constants; idcy++)
 	    decay_constant += decay_weights[idcy]*decay_constants_ns[idcy];
-	  if ( ibin*nspertic > apulse->tpeak + 10*decay_constant) {
+
+	  double dt = ibin*nspertic-apulse->tstart;
+	  
+	  // if falls below threshold	  
+	  if ( ave_window < sigfactor*sig_darknoise_ave ) {
+	    // reject if too short
+	    if ( dt<min_pulse_width ) {
+	      apulse->fStatus = KPPulse::kRejected;
+	      std::cout << "pulse rejected @ t=" << ibin*nspertic << " dt=" << dt << std::endl;
+	    }
+
+	  }
+	  // if expectation below threshold
+	  else if ( dt>min_pulse_width && expectation < sigfactor*sig_darknoise_ave ) {
+	    apulse->tend = ibin*nspertic + decay_constant;
+	    apulse->fStatus=KPPulse::kDefined;
+	    std::cout << "pulse defined (expectation below threshold)" << std::endl;
+	  }
+	  // pulse "times out"
+	  else if ( ibin*nspertic-apulse->tstart > 1000 ) {
 	    apulse->tend = ibin*nspertic;
 	    apulse->fStatus=KPPulse::kDefined;
+	    std::cout << "pulse defined (pulse timed out)" << std::endl;
 	  }
-
 	}
 	
       }//end of loop over pulses
@@ -866,14 +890,19 @@ int find_trigger4( std::vector<double>& tbins,
   // save unclosed pulses
   for ( KPPulseListIter it=pulses.begin(); it!=pulses.end(); it++ ) {
     KPPulse* apulse = *it;
-    if ( apulse->fStatus!=KPPulse::kDefined ) {
+    if ( apulse->fStatus!=KPPulse::kDefined && apulse->fStatus!=KPPulse::kRejected ) {
       if ( apulse->fStatus==KPPulse::kRising ){
 	apulse->peakamp = apulse->last_max;
 	apulse->tend  = nbins*nspertic;
       }
       apulse->fStatus = KPPulse::kDefined;
     }
+    
+    if ( apulse->fStatus!=KPPulse::kRejected )
+      final_pulses.push_back( apulse );
+    else
+      delete (*it);
   }
   
-  return npulses;
+  return final_pulses.size();
 }

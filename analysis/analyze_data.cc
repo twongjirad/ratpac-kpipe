@@ -62,10 +62,10 @@ int main( int nargs, char** argv ) {
   int num_id_hoop_sum = 100;
   double hoop_coincidence_window = 10;
 
-  //double sipm_darkrate_hz = 1.6e6;
-  double sipm_darkrate_hz = 0.0;
+  double sipm_darkrate_hz = 1.6e6;
+  //double sipm_darkrate_hz = 0.0;
 
-  double IDsigma_threshold = 4.0;
+  double IDsigma_threshold = 3.0;
   double ODsigma_threshold = 4.0;
 
   // --------------------------------
@@ -216,8 +216,8 @@ int main( int nargs, char** argv ) {
   tree->Branch( "tend_veto",  &tend_veto );
   tree->Branch( "twfm_integral", &twfm_integral, "twfm_integral/D" );
   tree->Branch( "twfm_veto_integral", &twfm_veto_integral, "twfm_veto_integral/D" );
-  tree->Branch( "twfm", &twfm );
-  tree->Branch( "twfm_veto", &twfm_veto );
+  //tree->Branch( "twfm", &twfm );
+  //tree->Branch( "twfm_veto", &twfm_veto );
   // cosmic truth
   if ( cry_mode ) {
     tree->Branch( "ncr_photons",  &ncr_photons, "ncr_photons/I" );
@@ -567,7 +567,7 @@ int main( int nargs, char** argv ) {
 
     // look for final pulses
     npulses = find_trigger4( twfm,
-			     0.5*window_ns, 3.0, //IDsigma_threshold,
+			     0.5*window_ns, 3.0, 30.0, //IDsigma_threshold,
 			     window_ns, sipm_darkrate_hz, ncoinhoops*100,
 			     n_decay_constants, decay_weights, decay_constants_ns,
 			     pulselist );

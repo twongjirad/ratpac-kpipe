@@ -28,19 +28,22 @@ mcdata.SetBranchAddress('twfm',twfm)
 
 out = ROOT.TFile('output_test.root','recreate')
 
-c = ROOT.TCanvas('c','',800,1200)
-c.Divide(1,3)
+c = ROOT.TCanvas('c','',1200,1200)
+c.Divide(2,3)
 
 window = 20
 tave = window
 darkrate = 1.6e6
-nfalling = 3
+nfalling = window*0.5
 nabove = 3
 nsipms = 100.0*100
 nexp_dark = darkrate*1.0e-9*window*nsipms
 staterr = sqrt(nexp_dark)
-thresh = 4.0*staterr
+#nexp_dark = 0.0
+#staterr = 1.0
+thresh = 3.5*staterr
 decay_const = 1.0*45+0.0*67
+decay_constants = [ (0.5,30.0), (0.2, 90.0), (0.3, 400.0) ]
 use_ave = True
 print "Expected dark rate in window: ",nexp_dark,"+/-",staterr
 print "thresh: ",thresh
@@ -53,7 +56,17 @@ hthresh = ht.Clone("hthresh")
 hthresh_ave = ht.Clone("hthresh_ave")
 hexpect = ht.Clone("hexpect")
 hexpect_ave = ht.Clone("hexpect_ave")
-for h in [ hthresh, hthresh_ave ]:
+
+hveto = {}
+hveto["htraw"] = ROOT.TH1D("htraw_veto",'',10000,0,10000) # 10 usec with 1 ns bins
+hveto["ht2"] = ht.Clone("htwinsum_veto") # hit window
+hveto["htave"] = ht.Clone("htave_veto") # hit window ave
+hveto["hthresh"] = ht.Clone("hthresh_veto")
+hveto["hthresh_ave"] = ht.Clone("hthresh_ave_veto")
+hveto["hexpect"] = ht.Clone("hexpect_veto")
+hveto["hexpect_ave"] = ht.Clone("hexpect_ave_veto")
+
+for h in [ hthresh, hthresh_ave, hveto["hthresh"], hveto["hthresh_ave"] ]:
     h.SetLineColor(ROOT.kGreen+4)
 
 # =====================================
@@ -71,11 +84,15 @@ for iev in xrange(0,nevents):
     print "  pe in hist: ",ht.Integral()
     print "  posv: R=", mcdata.rv," Z=",mcdata.zv
     print "  visible energy: ",mcdata.mumomv+mcdata.totkeprotonv," MeV"," mu=",mcdata.mumomv," proton=",mcdata.totkeprotonv
+    print "  predark: ID=",mcdata.predark_idpe, " OD=",mcdata.predark_odpe
     print "  full window dark noise ",darkrate*1.0e-9*nsipms*10.0e3," vs. integral=",ht.Integral()
     print "  c++ result: id pulses=",mcdata.npulses," od pulses=",mcdata.npulses_veto
     print "  thresh (ave): ",thresh/float(window)
     for i in xrange(0,mcdata.npulses):
         print " ",i,") t=",mcdata.ttrig[i]," pe=",mcdata.pulsepe[i]
+
+    if iev not in [10,19,37,69,103,112,121,138]:
+        continue
     
     # Analyze
     pulses = {}
@@ -131,7 +148,6 @@ for iev in xrange(0,nevents):
             mod_thresh = 0.0 #thresh
             mod_thresh_ave = 0.0 #thresh/float(window)
             onerising = False
-            peaks_sum_ave = 0
             for pulse in active_pulses:
                 if "peak" not in pulses[pulse]:
                     # we still have a rising peak. make threshold impossble
@@ -141,7 +157,10 @@ for iev in xrange(0,nevents):
                     pe_expect = hits_window
                     pe_expect_ave = ave_window
                 else:
-                    expecthits = pulses[pulse]["peak"]*exp( -1.0*( ibin-pulses[pulse]["tpeak"] )/decay_const - 0.0*( ibin-pulses[pulse]["tpeak"] )/120.0 )
+                    arg = 0.0
+                    for w,dc in decay_constants:
+                        arg += w*( ( float(ibin)-pulses[pulse]["tpeak"] )/dc )
+                    expecthits = pulses[pulse]["peak"]*exp( -1.0*arg )
                     expect_sig = sqrt(nexp_dark)
                     if expecthits<0:
                         expecthits = 1.0
@@ -149,10 +168,7 @@ for iev in xrange(0,nevents):
                         mod_thresh += (expecthits + 5.0*expect_sig)
                     else:
                         mod_thresh += (expecthits + 3.0*expect_sig)
-                    expecthits_ave = (pulses[pulse]["peak_ave"])*exp( -1.0*( ibin-pulses[pulse]["tpeak"] )/decay_const)
-                    peaks_sum_ave +=  (pulses[pulse]["peak_ave"])
-                    #expecthits_ave = (pulses[pulse]["peak"])
-                    #mod_thresh_ave += expecthits_ave + 3.0*sqrt(expecthits_ave)
+                    expecthits_ave = pulses[pulse]["peak_ave"]*exp( -1.0*arg )
                     mod_thresh_ave += expecthits_ave + 4.0*(staterr/float(window)) + sqrt(expecthits_ave)
                     pe_expect += expecthits
                     pe_expect_ave += expecthits_ave
@@ -170,7 +186,7 @@ for iev in xrange(0,nevents):
                     ll = float(hits_window)
                     if use_ave:
                         ll = ave_window
-                    pulses[ npulses ] = { "tstart":ibin, "nhits":hits_window, "end":False, "last_level":ll, "nfalling":0 }
+                    pulses[ npulses ] = { "tstart":ibin, "nhits":hits_window, "end":False, "last_level":ll, "nfalling":0,"last_max":0,"tlast":ibin }
                     print "PULSE FOUND (",npulses,") (overlap): ",ibin,hits_window,mod_thresh," rising=",onerising
                     npulses += 1
                     bins_above = 0
@@ -192,28 +208,56 @@ for iev in xrange(0,nevents):
                         if not use_ave:
                             pulses[pulse]["last_level"] = float(hits_window)
                         else:
-                            pulses[pulse]["last_level"] = ave_window
-                        pulses[pulse]["tlast"] = ibin
+                            if pulses[pulse]["last_level"]<ave_window:
+                                pulses[pulse]["last_level"] = ave_window
+                                pulses[pulse]["tlast"] = ibin
 
                     if pulses[pulse]["nfalling"]>nfalling:
                         print "Found peak: ",ibin-window
-                        #pulses[pulse]["tpeak"] = ibin-nfalling
                         pulses[pulse]["tpeak"] = pulses[pulse]["tlast"]
                         pulses[pulse]["peak"] = pulses[pulse]["last_level"]*window #float(hits_window) 
                         pulses[pulse]["peak_ave"] = pulses[pulse]["last_level"] # ave win
                 else:
-                    if ibin >pulses[pulse]["tpeak"]+8*decay_const:
-                        print "End of pulse %d found: "%(pulse),ibin
-                        pulses[pulse]["tend"] = pulses[pulse]["tpeak"]+8*decay_const # for now
+                    # LOOK FOR END
+                    dt = ibin-pulses[pulse]["tstart"]
+                    # below threshold
+                    if ave_window<thresh/float(window):
+                        if ibin-pulses[pulse]["tstart"]<50 or pulses[pulse]["nfalling"]<nfalling:
+                            print "pulse too small: dt=",dt
+                            pulses[pulse]["reject"] = True
+                        
+                    # fall below expectation
+                    elif dt>50 and pe_expect_ave < (thresh/float(window))*1.05:
+                        print "End of pulse %d found via expectation (dt="%(pulse),ibin-pulses[pulse]["tstart"], "): ",ibin
+                        pulses[pulse]["tend"] = ibin+decay_const
+                        
+                    elif ibin >pulses[pulse]["tpeak"]+12*decay_const:
+                        print "End of pulse %d found via itme out: "%(pulse),ibin
+                        pulses[pulse]["tend"] = pulses[pulse]["tpeak"]+10*decay_const # for now
+                    #if len(active_pulses)==1 and ave_window>pulses[pulse]["peak_ave"]:
+                    #    print "adjust peak: ",ave_window, pulses[pulse]["peak_ave"]
+                    #    pulses[pulse]["peak_ave"] = ave_window
+                    #    pulses[pulse]["peak"] = ave_window*window
+                    #    pulses[pulse]["tpeak"] = ibin
 
         for ipulse,pulseinfo in pulses.items():
             if "tend" in pulseinfo and ipulse in active_pulses:
-                print "Remove pulse=",ipulse
+                print "Remove pulse (OK) =",ipulse
                 active_pulses.remove(ipulse)
+            if "reject" in pulseinfo and ipulse in active_pulses:
+                print "Remove pulse (REJECTED) =",ipulse
+                active_pulses.remove(ipulse)
+                pulses.pop(ipulse,None)
 
         # set expectation
         hexpect.SetBinContent( ibin, pe_expect )
         hexpect_ave.SetBinContent( ibin, pe_expect_ave )
+
+    print "Final number of pulses: ",len(pulses)
+    pulseids = pulses.keys()
+    pulseids.sort()
+    for id, pulse in pulses.items():
+        print id,pulse
                 
     c.cd(1)
     ht.Draw()
@@ -244,7 +288,7 @@ for iev in xrange(0,nevents):
             f.Draw("Rsame")
             fits.append(f)
 
-    c.cd(2)
+    c.cd(3)
     ht2.Draw()
     hthresh.Draw("same")
     for l in lines:
@@ -252,12 +296,13 @@ for iev in xrange(0,nevents):
     hexpect.SetLineColor(ROOT.kRed)
     hexpect.Draw("same")
 
-    c.cd(3)
+    c.cd(5)
     htave.Draw()
     hexpect_ave.SetLineColor(ROOT.kRed)
     hexpect_ave.Draw("same")
     hthresh_ave.Draw("same")
-
+    for l in lines:
+        l.Draw()
     c.Update()
     #if len(pulses)>0:
     raw_input()
