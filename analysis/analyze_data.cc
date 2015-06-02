@@ -44,7 +44,7 @@ int main( int nargs, char** argv ) {
   RAT::DSReader* ds = new RAT::DSReader( inputfile.c_str() ); 
   int first_od_sipmid = 90000;
   int n_decay_constants = 3;
-  double window_ns = 40.0;
+  double window_ns = 20.0;
   double window_ns_veto = 40.0;
   double decay_weights[3] = { 0.5, 0.2, 0.3 };
   double decay_constants_ns[3] = { 30.0, 90.0, 400.0 };
@@ -65,8 +65,17 @@ int main( int nargs, char** argv ) {
   double sipm_darkrate_hz = 1.6e6;
   //double sipm_darkrate_hz = 0.0;
 
-  double IDsigma_threshold = 3.0;
+  double target_pe_threshold = 25.0;
+
+  double IDsigma_threshold = 4.0;
   double ODsigma_threshold = 4.0;
+
+  double nhoops_calc = IDsigma_threshold*IDsigma_threshold*window_ns*100*(sipm_darkrate_hz*1.0e-9);
+  if ( nhoops_calc==0 )
+    nhoops_calc = 1.0;
+  std::cout << "-------------------------------------------------------------------------------------------------------------------------------------------------" << std::endl;
+  std::cout << "For pe threshold=" << target_pe_threshold << " with " << IDsigma_threshold << " sigma significance, integrate over " << nhoops_calc << " hoops" << std::endl;
+  std::cout << "-------------------------------------------------------------------------------------------------------------------------------------------------" << std::endl;
 
   // --------------------------------
   // Build DAQ
@@ -216,8 +225,8 @@ int main( int nargs, char** argv ) {
   tree->Branch( "tend_veto",  &tend_veto );
   tree->Branch( "twfm_integral", &twfm_integral, "twfm_integral/D" );
   tree->Branch( "twfm_veto_integral", &twfm_veto_integral, "twfm_veto_integral/D" );
-  //tree->Branch( "twfm", &twfm );
-  //tree->Branch( "twfm_veto", &twfm_veto );
+  tree->Branch( "twfm", &twfm );
+  tree->Branch( "twfm_veto", &twfm_veto );
   // cosmic truth
   if ( cry_mode ) {
     tree->Branch( "ncr_photons",  &ncr_photons, "ncr_photons/I" );
@@ -447,7 +456,7 @@ int main( int nargs, char** argv ) {
     // --------------------------------
     // TRIGGER
     std::cout << "  -- pulse finder -- " << std::endl;
-    int ncoinhoops = 100;
+    int ncoinhoops = (int)nhoops_calc;
     int nhoops_group = 2*int(ncoinhoops/2)+1;
     double expected_darkrate = 100*(sipm_darkrate_hz*1.0e-9)*window_ns*( nhoops_group ); // in channel
     double sig_darkrate = sqrt( expected_darkrate );
@@ -567,7 +576,7 @@ int main( int nargs, char** argv ) {
 
     // look for final pulses
     npulses = find_trigger4( twfm,
-			     0.5*window_ns, 3.0, 30.0, //IDsigma_threshold,
+			     0.5*window_ns, 3.0, 20.0, //IDsigma_threshold,
 			     window_ns, sipm_darkrate_hz, ncoinhoops*100,
 			     n_decay_constants, decay_weights, decay_constants_ns,
 			     pulselist );
