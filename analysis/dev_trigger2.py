@@ -41,7 +41,8 @@ nexp_dark = darkrate*1.0e-9*window*nsipms
 staterr = sqrt(nexp_dark)
 #nexp_dark = 0.0
 #staterr = 1.0
-thresh = 3.5*staterr
+#thresh = 3.5*staterr
+thresh = 3.0*staterr
 decay_const = 1.0*45+0.0*67
 decay_constants = [ (0.5,30.0), (0.2, 90.0), (0.3, 400.0) ]
 use_ave = True
@@ -91,8 +92,8 @@ for iev in xrange(0,nevents):
     for i in xrange(0,mcdata.npulses):
         print " ",i,") t=",mcdata.ttrig[i]," pe=",mcdata.pulsepe[i]
 
-    if iev not in [10,19,37,69,103,112,121,138]:
-        continue
+    #if iev not in [2,10,75,94,138,147,171,210,216,299]:
+    #    continue
     
     # Analyze
     pulses = {}
