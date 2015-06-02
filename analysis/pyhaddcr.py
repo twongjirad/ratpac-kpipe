@@ -6,17 +6,20 @@ pair_list = {}
 os.system("rm temp_cranalysis_f*.root")
 
 cry_merge = "crygen_merged.root"
-#ana_merge = "crana_merged_wdarknoise_0_500_v3_10mhz.root"
-ana_merge = "crana_merged_wdarknoise_0_500_v1.root"
+#ana_merge = "crana_merged_wdarknoise_0_500_v3_10mhz_oldalg.root"
+ana_merge = "crana_merged_wdarknoise_0_2000_v4_1.6mhz_pass2.root"
 for p in xrange(0,500):
     cryfile = "/net/nudsk0001/d00/scratch/taritree/cry_gen/0/cry_events_%d.root"%(p)
     #anafile = "/net/nudsk0001/d00/scratch/taritree/cr_trg_out/output_cr_analysis_%d.root"%(p)
     #anafile = "/net/nudsk0001/d00/scratch/taritree/crkpipe_ana_nodarknoise/output_cr_analysis_%04d.root"%(p)
     #anafile = "/net/nudsk0001/d00/scratch/taritree/crkpipe_ana_nodarknoise_v2/output_cr_analysis_%04d.root"%(p)
-    anafile = "/net/nudsk0001/d00/scratch/taritree/crkpipe_ana_wdarknoise/output_cr_analysis_%04d.root"%(p)
+    #anafile = "/net/nudsk0001/d00/scratch/taritree/crkpipe_ana_wdarknoise/output_cr_analysis_%04d.root"%(p)
     #anafile = "/net/nudsk0001/d00/scratch/taritree/crkpipe_ana_wdarknoise_v2/output_cr_analysis_%04d.root"%(p)
     #anafile = "/net/nudsk0001/d00/scratch/taritree/crkpipe_ana_wdarknoise_v3/output_cr_analysis_%04d.root"%(p)
     #anafile = "/net/nudsk0001/d00/scratch/taritree/crkpipe_ana_wdarknoise_v3_10mhz/output_cr_analysis_10mhz_%04d.root"%(p)
+    #anafile = "/net/nudsk0001/d00/scratch/taritree/crkpipe_ana_wdarknoise_v3_10mhz/old_single_hoop/output_cr_analysis_10mhz_%04d.root"%(p)
+    #anafile = "/net/nudsk0001/d00/scratch/taritree/crkpipe_ana_wdarknoise_v4_10mhz/output_cr_analysis_v4_10mhz_%04d.root"%(p)
+    anafile = "/net/nudsk0001/d00/scratch/taritree/crkpipe_ana_wdarknoise_v4_1.6mhz/output_cr_analysis_v4_1.6mhz_%04d.root"%(p)    
 
     rcryfile = TFile( cryfile )
     ranafile = TFile( anafile )
@@ -64,3 +67,5 @@ os.system("rm %s"%(ana_merge))
 #os.system( "hadd %s %s"%(cry_merge,cry_add))
 os.system( "hadd %s %s"%(ana_merge,ana_add))
 os.system("rm temp_cranalysis_f*.root")
+
+print "FINISHED: Completed pairs=",len(pair_list)

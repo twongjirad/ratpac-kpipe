@@ -23,8 +23,8 @@ int main(int nargs, char** argv ) {
 
   gROOT->ProcessLine("gErrorIgnoreLevel=kError;");
   
-  if ( nargs<3 || nargs>4 ) {
-    std::cout << "usage: gen_kdar_event [source tree file path] [nevents] [offset]" << std::endl;
+  if ( nargs<4 || nargs>5 ) {
+    std::cout << "usage: gen_kdar_event [source tree file path] [nevents] [gdml_file] [offset]" << std::endl;
     return -1;
   }
   
@@ -32,9 +32,12 @@ int main(int nargs, char** argv ) {
   if ( inputfile=="default" )
     inputfile = "/net/nudsk0001/d00/scratch/spitzj/eventsout_nuwroxsec_numu_kpipe_3_25_2015.root";
   int nevents = std::atoi( argv[2] );
+  std::string gdml_file = argv[3]; //"/net/hisrv0001/home/taritree/kpipe/ratpac-kpipe/data/kpipe/kpipe_nosipms.gdml";
+  
   int offset = 0;
-  if (nargs==4)
-    offset = std::atoi(argv[3]);
+  if (nargs==5)
+    offset = std::atoi(argv[4]);
+
 
   TFile* finput = new TFile( inputfile.c_str(), "open");
   TTree* tevents = (TTree*)finput->Get( "treeout" );
@@ -48,7 +51,7 @@ int main(int nargs, char** argv ) {
   double rnorm = fabs( zrange[0] - source_pos[2] ); // event normalized to 1 at this radius
   bool save_diagnostic_plots = true;
 
-  std::string gdml_file = "/net/hisrv0001/home/taritree/kpipe/ratpac-kpipe/data/kpipe/kpipe_nosipms.gdml";
+
   //std::string gdml_file = "../data/kpipe/kpipe.gdml";
   TGeoManager* gdml = TGeoManager::Import( gdml_file.c_str() );
   //TRandom3 rand( time(NULL) );

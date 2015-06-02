@@ -124,7 +124,7 @@ def launch_jobs( job_json, inputlists, outputlists, arglists, testmode=False ):
         if not testmode:
             print "[SUBMIT]", command
             os.system( command )
-            time.sleep(0.1)
+            time.sleep(0.25)
         else:
             print "[TEST] ",command
 

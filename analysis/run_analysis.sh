@@ -4,12 +4,12 @@ INPUT=$1
 OUTPUT=$2
 PMTINFO=$3
 
-tar zxvf rat.tar.gz
+tar zxvf rat.tar.gz > /dev/null
 
-if test -z "${_CONDOR_SCRATCH_DIR}"; then
-export _CONDOR_SCRATCH_DIR=/tmp/$USERNAME/mytmpdir/
-fi
-mkdir -p ${_CONDOR_SCRATCH_DIR}
+#if test -z "${_CONDOR_SCRATCH_DIR}"; then
+#export _CONDOR_SCRATCH_DIR=/tmp/$USERNAME/mytmpdir/
+#fi
+#mkdir -p ${_CONDOR_SCRATCH_DIR}
 
 # SETUP ENVIONMENT
 source ratpac-kpipe/tier2scripts/env_condornode.sh
@@ -18,7 +18,7 @@ source ratpac-kpipe/tier2scripts/env_condornode.sh
 cd ratpac-kpipe/analysis
 
 # RUN RAT
-./analyze_data ../../${INPUT} ../../${OUTPUT}  ../../${PMTINFO}
+./analyze_data ../../${INPUT} ../../${OUTPUT}  ../../${PMTINFO} > /dev/null
 
 cd ../../
 
