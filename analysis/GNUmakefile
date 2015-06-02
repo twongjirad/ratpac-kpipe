@@ -11,7 +11,7 @@ LOCAL_INC = -I.
 
 
 #CFLAGS = -g -fPIC 
-CFLAGS = -O3
+CFLAGS = -O3 -fPIC
 #CFLAGS += -std=c++11
 CFLAGS += $(ROOT_INCLUDES) $(RAT_INCLUDES) $(LOCAL_INC)
 LDFLAGS += `root-config --ldflags` 

@@ -717,8 +717,8 @@ int find_trigger4( std::vector<double>& tbins,
     // determine window
     int istart = ibin - windowbins/2;
     int iend   = ibin + windowbins/2;
-    istart = std::fmax(0,istart);
-    iend   = std::fmin(iend,nbins-1);
+    istart = fmax(0,istart);
+    iend   = fmin(iend,nbins-1);
     int windowbins = iend-istart+1;
 
     // calculate expected background
