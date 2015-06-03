@@ -6,13 +6,15 @@ pair_list = {}
 os.system("rm temp_analysis_f*.root")
 
 NEVENTS_EXPECTED = 1000
-ana_merge = "kdarana_merged_wdarknoise_0_200_v4_1.6mhz_4.0sig_pass2.root"
+#ana_merge = "kdarana_merged_wdarknoise_0_200_v4_1.6mhz_4.0sig_pass2.root"
+ana_merge = "kdarana_merged_nodarknoise_0_200_v4.root"
 
 for p in xrange(0,200):
 
     #anafile = "/net/nudsk0001/d00/scratch/taritree/kpipe_ana_wdarknoise_v4_1.6mhz/kdar_analysis_wdarknoise_v4_1.6mhz_%04d.root"%(p)
-    anafile = "/net/nudsk0001/d00/scratch/taritree/kpipe_ana_wdarknoise_v4_1.6mhz/sig4.0/kdar_analysis_wdarknoise_v4_1.6mhz_%04d.root"%(p)
+    #anafile = "/net/nudsk0001/d00/scratch/taritree/kpipe_ana_wdarknoise_v4_1.6mhz/sig4.0/kdar_analysis_wdarknoise_v4_1.6mhz_%04d.root"%(p)
     #anafile = "/net/nudsk0001/d00/scratch/taritree/kpipe_ana_wdarknoise_v4_1.6mhz/sig3.0/kdar_analysis_wdarknoise_v4_1.6mhz_%04d.root"%(p)
+    anafile = "/net/nudsk0001/d00/scratch/taritree/kpipe_ana_nodarknoise_v4/kdar_analysis_nodarknoise_v4_%04d.root"%(p)
 
     ranafile = TFile( anafile )
     
