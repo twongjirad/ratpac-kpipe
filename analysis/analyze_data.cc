@@ -45,7 +45,7 @@ int main( int nargs, char** argv ) {
   int first_od_sipmid = 90000;
   int n_decay_constants = 3;
   double window_ns = 20.0;
-  double window_ns_veto = 40.0;
+  double window_ns_veto = 20.0;
   double decay_weights[3] = { 0.5, 0.2, 0.3 };
   double decay_constants_ns[3] = { 30.0, 90.0, 400.0 };
   int n_decay_constants_veto = 3;
@@ -68,7 +68,9 @@ int main( int nargs, char** argv ) {
   double target_pe_threshold = 25.0;
 
   double IDsigma_threshold = 4.0;
-  double ODsigma_threshold = 4.0;
+  double ODsigma_threshold = 3.0;
+
+  double min_pulse_width = 25.0;
 
   double nhoops_calc = IDsigma_threshold*IDsigma_threshold*window_ns*100*(sipm_darkrate_hz*1.0e-9);
   if ( nhoops_calc==0 )
@@ -244,7 +246,7 @@ int main( int nargs, char** argv ) {
 
   int ievent = 0;
   int nevents = ds->GetTotal();
-  //nevents = 200;
+  nevents = 200;
 
   KPPulseList pulselist;
   KPPulseList pulselist_veto;
@@ -405,9 +407,11 @@ int main( int nargs, char** argv ) {
 
     // true muon momentum
     for (int ipart=0; ipart<mc->GetMCParticleCount(); ipart++) {
+      TVector3 mom( mc->GetMCParticle(ipart)->GetMomentum() );
+      double pmom = sqrt( mom.X()*mom.X() + mom.Y()*mom.Y() + mom.Z()*mom.Z() );
+
       if ( mc->GetMCParticle(ipart)->GetPDGCode()==13 ) {
-	TVector3 mom( mc->GetMCParticle(ipart)->GetMomentum() );
-	mumomv = sqrt( mom.X()*mom.X() + mom.Y()*mom.Y() + mom.Z()*mom.Z() );
+	mumomv = pmom;
 	mudirv[0] = mom.X()/mumomv;
 	mudirv[1] = mom.Y()/mumomv;
 	mudirv[2] = mom.Z()/mumomv;
@@ -421,7 +425,12 @@ int main( int nargs, char** argv ) {
       else if ( mc->GetMCParticle(ipart)->GetPDGCode()==2212 ) {
 	totkeprotonv += mc->GetMCParticle(ipart)->GetKE();
       }
-      std::cout << "  particle=" << ipart << " pdg=" << mc->GetMCParticle(ipart)->GetPDGCode() << " ke=" << mc->GetMCParticle(ipart)->GetKE() << std::endl;
+      std::cout << "  particle=" << ipart 
+		<< " pdg=" << mc->GetMCParticle(ipart)->GetPDGCode() 
+		<< " mom=" << pmom
+		<< " ke=" << mc->GetMCParticle(ipart)->GetKE() 
+	//<< " mass=" << mc->GetMCParticle(ipart)->GetParticleMass() 
+		<< std::endl;
     }
 
     // count stuff (post dark noise)
@@ -542,8 +551,8 @@ int main( int nargs, char** argv ) {
     for ( std::map< int, KPPulseList* >::iterator it=idch_pulse_list.begin(); it!=idch_pulse_list.end(); it++ ) {
       int ich = (*it).first;
 
-      if ( abs(maxhoop-ich)>50 )
-	continue;
+      //if ( abs(maxhoop-ich)>50 )
+      //	continue;
 
       double chpe = 0.0;
       if ( (*it).second->size()>0 ) {
@@ -551,16 +560,16 @@ int main( int nargs, char** argv ) {
 
 	  bool fill = false;
 	  // require neighboor cooincidence
-	  int jch = ich-1;
-	  if ( ich==0 )
-	    jch = ich+1;
-	  KPPulseList* us_pulses = idch_pulse_list[jch];
-	  for (int jpulse=0; jpulse<us_pulses->size(); jpulse++) {
-	    if ( fabs( us_pulses->at(jpulse)->tstart-(*pit)->tstart )<hoop_coincidence_window ) {
-	      fill = true;
-	      break;
-	    }
-	  }
+// 	  int jch = ich-1;
+// 	  if ( ich==0 )
+// 	    jch = ich+1;
+// 	  KPPulseList* us_pulses = idch_pulse_list[jch];
+// 	  for (int jpulse=0; jpulse<us_pulses->size(); jpulse++) {
+// 	    if ( fabs( us_pulses->at(jpulse)->tstart-(*pit)->tstart )<hoop_coincidence_window ) {
+// 	      fill = true;
+// 	      break;
+// 	    }
+// 	  }
 	  fill = true;
 	  
 	  if ( fill ) {
@@ -598,7 +607,8 @@ int main( int nargs, char** argv ) {
     float maxhoop_pos[3] = { 0 };
     if ( npulses>0 )
       daq.getChannelPos( maxhoop, &maxhoop_pos[0] );
-    std::cout << "  ID npulses=" << npulses << "  with threshold=" <<  threshold << " ( exp. dark rate=" << expected_darkrate << " +/- " << sig_darkrate << ") maxhoop=" << maxhoop << " maxhoop[z]=" << maxhoop_pos[2] << std::endl;
+    std::cout << "  [ NUMBER OF ID PULSES = " << npulses << std::endl;
+    std::cout << "    with threshold=" <<  threshold << " ( exp. dark rate=" << expected_darkrate << " +/- " << sig_darkrate << ") maxhoop=" << maxhoop << " maxhoop[z]=" << maxhoop_pos[2] << std::endl;
     
     for ( KPPulseListIter it=pulselist.begin(); it!=pulselist.end(); it++ )
       std::cout << "    - tstart=" << (*it)->tstart 
@@ -622,8 +632,10 @@ int main( int nargs, char** argv ) {
 
     // ==================================================================================================================
     // VETO: SAME STRATEGY AS SIGAL REGION
-    int veto_ncoinhoops = 2; // we analyze hoop with neighboring hoops
-    int veto_nhoops_group_sides = 2*int(ncoinhoops/2)+1; 
+    int veto_ncoinhoops = 1; // we analyze hoop with neighboring hoops
+    if ( sipm_darkrate_hz==0 )
+      veto_ncoinhoops = 1;
+    int veto_nhoops_group_sides = 2*int(veto_ncoinhoops/2)+1; 
     int veto_nhoops_group_caps = 1; // except for caps, these analyzed alone
     double veto_expected_darkrate_sides = nodsipms_per_hoop[trig_version]*(sipm_darkrate_hz*1.0e-9)*window_ns_veto*( veto_nhoops_group_sides );
     double veto_sig_darkrate_sides = sqrt( veto_expected_darkrate_sides );
@@ -631,6 +643,11 @@ int main( int nargs, char** argv ) {
     double veto_expected_darkrate_caps = nod_sipms_per_hoop_endcap*(sipm_darkrate_hz*1.0e-9)*window_ns_veto*veto_nhoops_group_caps;
     double veto_sig_darkrate_caps = sqrt( veto_expected_darkrate_caps );
     double veto_threshold_caps = veto_expected_darkrate_caps + ODsigma_threshold*veto_sig_darkrate_caps;
+
+    // poisson:
+    veto_threshold_caps = 13.0;
+    veto_threshold_sides = 13.0;
+    
 
     std::cout << "  OD pulses [thresh: SIDES=" << veto_threshold_sides << ", CAPS=" << veto_threshold_caps << "] "
 	      << " (expected dark rate:"
@@ -758,11 +775,16 @@ int main( int nargs, char** argv ) {
     
     // look for final pulses
     std::cout << "  post veto pulse finding: " << veto_threshold_sides << ", " << window_ns_veto << std::endl;
-    npulses_veto = find_trigger3( twfm_veto,
-				  veto_threshold_sides, window_ns_veto, sipm_darkrate_hz,
-				  false, 0, 0,
+//     npulses_veto = find_trigger3( twfm_veto,
+// 				  veto_threshold_sides, window_ns_veto, sipm_darkrate_hz,
+// 				  false, 0, 0,
+// 				  n_decay_constants_veto, decay_weights_veto, decay_constants_ns_veto,
+// 				  pulselist_veto, 90000, true, trig_version );
+    npulses_veto = find_trigger4( twfm_veto,
+				  0.5*window_ns_veto, ODsigma_threshold, min_pulse_width,
+				  window_ns_veto, sipm_darkrate_hz, 100,
 				  n_decay_constants_veto, decay_weights_veto, decay_constants_ns_veto,
-				  pulselist_veto, 90000, true, trig_version );
+				  pulselist_veto );
     for ( std::vector<double>::iterator itwfm=twfm_veto.begin(); itwfm!=twfm_veto.end(); itwfm++ )
       twfm_veto_integral += *itwfm;
 
@@ -781,7 +803,7 @@ int main( int nargs, char** argv ) {
 //     float maxhoop_pos[3] = { 0 };
 //     if ( npulses>0 )
 //       daq.getChannelPos( maxhoop, &maxhoop_pos[0] );
-    std::cout << "  OD npulses=" << npulses_veto << std::endl;
+    std::cout << " [ NUMBER OF OD PULSES=" << npulses_veto << " ]" << std::endl;
     
     pulse_totodpe = 0.0;
     for ( KPPulseListIter it=pulselist_veto.begin(); it!=pulselist_veto.end(); it++ ) {

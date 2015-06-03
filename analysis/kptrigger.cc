@@ -702,7 +702,7 @@ int find_trigger4( std::vector<double>& tbins,
   const int nbins = 10000;
   const double nspertic = 1.0;
   int windowbins = (int)window_ns/nspertic;
-  const int NFALLING = int(0.5*windowbins);
+  const int NFALLING = 3;//int(0.5*windowbins);
   const int NABOVE = 3;
   //const double min_pulse_width = 50; //ns
   if ( windowbins==0 ) windowbins++;
@@ -761,7 +761,7 @@ int find_trigger4( std::vector<double>& tbins,
 	  pulses.push_back( apulse );
 	  npulses++;
 	  bins_above = 0;
-	  std::cout << "new pulse @ t=" << ibin*nspertic << " (active=" << nactive << ") ave=" << ave_window << " threshold=" << threshold << std::endl;
+	  std::cout << "    new pulse @ t=" << ibin*nspertic << " (active=" << nactive << ") ave=" << ave_window << " threshold=" << threshold << std::endl;
 	}
 	else
 	  bins_above++;
@@ -813,7 +813,7 @@ int find_trigger4( std::vector<double>& tbins,
 	  pulses.push_back( apulse );
 	  npulses++;
 	  bins_above = 0;
-	  std::cout << "new pulse @ t=" << ibin*nspertic << " (active=" << nactive << ") ave=" << ave_window << " threshold=" << threshold << std::endl;
+	  std::cout << "    new pulse @ t=" << ibin*nspertic << " (active=" << nactive << ") ave=" << ave_window << " threshold=" << threshold << std::endl;
 	}
 	else {
 	  bins_above++;
@@ -864,21 +864,21 @@ int find_trigger4( std::vector<double>& tbins,
 	    // reject if too short
 	    if ( dt<min_pulse_width ) {
 	      apulse->fStatus = KPPulse::kRejected;
-	      std::cout << "pulse rejected @ t=" << ibin*nspertic << " dt=" << dt << std::endl;
+	      std::cout << "    pulse rejected @ t=" << ibin*nspertic << " dt=" << dt << std::endl;
 	    }
 
 	  }
 	  // if expectation below threshold
-	  else if ( dt>min_pulse_width && expectation < sigfactor*sig_darknoise_ave ) {
+	  else if ( dt>min_pulse_width && expectation < 0.05*sigfactor*sig_darknoise_ave ) {
 	    apulse->tend = ibin*nspertic + decay_constant;
 	    apulse->fStatus=KPPulse::kDefined;
-	    std::cout << "pulse defined (expectation below threshold)" << std::endl;
+	    std::cout << "    pulse defined @ t=" << ibin*nspertic << " (expectation below threshold)" << std::endl;
 	  }
 	  // pulse "times out"
 	  else if ( ibin*nspertic-apulse->tstart > 1000 ) {
 	    apulse->tend = ibin*nspertic;
 	    apulse->fStatus=KPPulse::kDefined;
-	    std::cout << "pulse defined (pulse timed out)" << std::endl;
+	    std::cout << "    pulse defined (pulse timed out)" << std::endl;
 	  }
 	}
 	

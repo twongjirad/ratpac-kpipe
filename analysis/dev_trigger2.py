@@ -34,7 +34,7 @@ c.Divide(2,3)
 window = 20
 tave = window
 darkrate = 1.6e6
-nfalling = window*0.5
+nfalling = 3
 nabove = 3
 nsipms = 100.0*100
 nexp_dark = darkrate*1.0e-9*window*nsipms
@@ -42,10 +42,11 @@ staterr = sqrt(nexp_dark)
 #nexp_dark = 0.0
 #staterr = 1.0
 #thresh = 3.5*staterr
-thresh = 3.0*staterr
+thresh = 4.0*staterr
 decay_const = 1.0*45+0.0*67
 decay_constants = [ (0.5,30.0), (0.2, 90.0), (0.3, 400.0) ]
 use_ave = True
+min_pulse_width = 25
 print "Expected dark rate in window: ",nexp_dark,"+/-",staterr
 print "thresh: ",thresh
 
@@ -90,10 +91,10 @@ for iev in xrange(0,nevents):
     print "  c++ result: id pulses=",mcdata.npulses," od pulses=",mcdata.npulses_veto
     print "  thresh (ave): ",thresh/float(window)
     for i in xrange(0,mcdata.npulses):
-        print " ",i,") t=",mcdata.ttrig[i]," pe=",mcdata.pulsepe[i]
+        print " ",i,") t=",mcdata.ttrig[i]," pe=",mcdata.pulsepe[i]," dt=",mcdata.pulsepe[i]-mcdata.ttrig[i]
 
-    #if iev not in [2,10,75,94,138,147,171,210,216,299]:
-    #    continue
+    if iev not in [10,12]:
+        continue
     
     # Analyze
     pulses = {}
@@ -135,7 +136,7 @@ for iev in xrange(0,nevents):
                     if use_ave:
                         ll = ave_window                
                     pulses[ npulses ] = { "tstart":ibin, "nhits":hits_window, "end":False, "last_level":ll, "nfalling":0,"tlast":ibin }
-                    print "PULSE FOUND (",npulses,"): ",ibin,hits_window
+                    print "candidate pulse (",npulses,"): ",ibin,hits_window
                     npulses += 1
                     bins_above = 0
             else:
@@ -188,7 +189,7 @@ for iev in xrange(0,nevents):
                     if use_ave:
                         ll = ave_window
                     pulses[ npulses ] = { "tstart":ibin, "nhits":hits_window, "end":False, "last_level":ll, "nfalling":0,"last_max":0,"tlast":ibin }
-                    print "PULSE FOUND (",npulses,") (overlap): ",ibin,hits_window,mod_thresh," rising=",onerising
+                    print "candidate pulse (",npulses,") (overlap): ",ibin,hits_window,mod_thresh," rising=",onerising
                     npulses += 1
                     bins_above = 0
             else:
@@ -197,10 +198,11 @@ for iev in xrange(0,nevents):
             #if onefall:
             #    print "   mod thresh: ",mod_thresh, "hit_win/win=",float(hits_window)/float(window)," ave_win=",ave_window
 
-
             # in pulse. looking for peak and end
             for pulse in active_pulses:
                 if "peak" not in pulses[pulse]:
+                    # ====================================================================
+                    # LOOK FOR PEAK
                     # now looking for peak
                     if (not use_ave and hits_window<pulses[pulse]["last_level"]) or ( use_ave and ave_window<pulses[pulse]["last_level"]):
                         pulses[pulse]["nfalling"] += 1
@@ -219,21 +221,25 @@ for iev in xrange(0,nevents):
                         pulses[pulse]["peak"] = pulses[pulse]["last_level"]*window #float(hits_window) 
                         pulses[pulse]["peak_ave"] = pulses[pulse]["last_level"] # ave win
                 else:
+                    # ====================================================================
                     # LOOK FOR END
                     dt = ibin-pulses[pulse]["tstart"]
+                    #print ibin,dt,pe_expect_ave,ave_window,thresh/float(window)
                     # below threshold
-                    if ave_window<thresh/float(window):
-                        if ibin-pulses[pulse]["tstart"]<50 or pulses[pulse]["nfalling"]<nfalling:
+                    if ave_window<(thresh/float(window)):
+                        if (ibin-pulses[pulse]["tstart"])<min_pulse_width or pulses[pulse]["nfalling"]<nfalling:
                             print "pulse too small: dt=",dt
                             pulses[pulse]["reject"] = True
                         
                     # fall below expectation
-                    elif dt>50 and pe_expect_ave < (thresh/float(window))*1.05:
+                    #if dt>min_pulse_width and ( pe_expect_ave < (thresh/float(window))*1.05 ):
+                    #if dt>min_pulse_width and ( mod_thresh_ave-4.0*(staterr/float(window)) < (thresh/float(window))*1.05 ):
+                    if dt>min_pulse_width and ( pe_expect_ave<0.05*(thresh/float(window))):
                         print "End of pulse %d found via expectation (dt="%(pulse),ibin-pulses[pulse]["tstart"], "): ",ibin
                         pulses[pulse]["tend"] = ibin+decay_const
                         
-                    elif ibin >pulses[pulse]["tpeak"]+12*decay_const:
-                        print "End of pulse %d found via itme out: "%(pulse),ibin
+                    if ibin-pulses[pulse]["tpeak"] > 12*decay_const:
+                        print "End of pulse %d found via time out: "%(pulse),ibin
                         pulses[pulse]["tend"] = pulses[pulse]["tpeak"]+10*decay_const # for now
                     #if len(active_pulses)==1 and ave_window>pulses[pulse]["peak_ave"]:
                     #    print "adjust peak: ",ave_window, pulses[pulse]["peak_ave"]
@@ -243,7 +249,7 @@ for iev in xrange(0,nevents):
 
         for ipulse,pulseinfo in pulses.items():
             if "tend" in pulseinfo and ipulse in active_pulses:
-                print "Remove pulse (OK) =",ipulse
+                print "Remove pulse (ACCEPTED) =",ipulse
                 active_pulses.remove(ipulse)
             if "reject" in pulseinfo and ipulse in active_pulses:
                 print "Remove pulse (REJECTED) =",ipulse
@@ -253,6 +259,12 @@ for iev in xrange(0,nevents):
         # set expectation
         hexpect.SetBinContent( ibin, pe_expect )
         hexpect_ave.SetBinContent( ibin, pe_expect_ave )
+
+    for ipulse,pulseinfo in pulses.items():
+        if "tend" not in pulseinfo and ipulse in active_pulses:
+            print "pulse did not finish"
+            pulseinfo["tend"] = ht.GetNbinsX()
+            active_pulses.remove(ipulse)
 
     print "Final number of pulses: ",len(pulses)
     pulseids = pulses.keys()
@@ -272,7 +284,7 @@ for iev in xrange(0,nevents):
         try:
             pend = ROOT.TLine( pulseinfo['tend'], 0, pulseinfo['tend'], 50 )
         except:
-            end = ht.GetNbinsX()
+            pend = ROOT.TLine( ht.GetNbinsX(), 0, ht.GetNbinsX(), 50 )
         if "tpeak" in pulseinfo:
             p = ROOT.TLine( pulseinfo['tpeak'], 0, pulseinfo['tpeak'], 50 )
             p.SetLineColor(ROOT.kMagenta)
