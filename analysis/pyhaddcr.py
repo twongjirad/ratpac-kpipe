@@ -7,8 +7,8 @@ os.system("rm temp_cranalysis_f*.root")
 
 cry_merge = "crygen_merged.root"
 #ana_merge = "crana_merged_wdarknoise_0_500_v3_10mhz_oldalg.root"
-ana_merge = "crana_merged_wdarknoise_0_2000_v4_1.6mhz_pass2.root"
-for p in xrange(0,500):
+ana_merge = "crana_merged_wdarknoise_0_2000_v4_1.6mhz_pass3.root"
+for p in xrange(0,2000):
     cryfile = "/net/nudsk0001/d00/scratch/taritree/cry_gen/0/cry_events_%d.root"%(p)
     #anafile = "/net/nudsk0001/d00/scratch/taritree/cr_trg_out/output_cr_analysis_%d.root"%(p)
     #anafile = "/net/nudsk0001/d00/scratch/taritree/crkpipe_ana_nodarknoise/output_cr_analysis_%04d.root"%(p)

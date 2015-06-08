@@ -13,7 +13,7 @@
 #include "pmtinfo.hh"
 #include "kpdaq.h"
 
-//#define __CH_VERBOSE__
+#define __CH_VERBOSE__
 //#define __VETO_VERBOSE__
 
 int main( int nargs, char** argv ) {
@@ -62,8 +62,8 @@ int main( int nargs, char** argv ) {
   int num_id_hoop_sum = 100;
   double hoop_coincidence_window = 10;
 
-  double sipm_darkrate_hz = 1.6e6;
-  //double sipm_darkrate_hz = 0.0;
+  //double sipm_darkrate_hz = 1.6e6;
+  double sipm_darkrate_hz = 0.0;
 
   double target_pe_threshold = 25.0;
 
