@@ -17,7 +17,7 @@ CFLAGS += $(ROOT_INCLUDES) $(RAT_INCLUDES) $(LOCAL_INC)
 LDFLAGS += `root-config --ldflags` 
 LDLIBS = $(RAT_LIBS) $(ROOT_LIBS) -lstdc++
 
-all: scrape_data libkptrigger.so analyze_data aux_data
+all: scrape_data libkptrigger.so analyze_data aux_data test_geotools
 
 scrape_data.o: scrape_data.cc
 	$(CC) $(CFLAGS) -c -o $@ $^
@@ -27,6 +27,9 @@ aux_data.o: aux_data.cc
 
 kptrigger.o: kptrigger.cc kptrigger.h
 	$(CC) $(CFLAGS) -c -o $@ kptrigger.cc
+
+geotools.o: geotools.cc geotools.h
+	$(CC) $(CFLAGS) -c -o $@ geotools.cc
 
 pmtinfo.o: pmtinfo.cc pmtinfo.hh
 	$(CC) $(CFLAGS) -c -o $@ pmtinfo.cc
@@ -43,7 +46,7 @@ gen_dark_noise.o: gen_dark_noise.cc gen_dark_noise.hh
 prefitz.o: prefitz.cc prefitz.hh
 	$(CC) $(CFLAGS) -c -o $@ prefitz.cc
 
-libkptrigger.so: kptrigger.o pmtinfo.o gen_dark_noise.o prefitz.o kpdaq.o tree.o
+libkptrigger.so: kptrigger.o pmtinfo.o gen_dark_noise.o prefitz.o kpdaq.o tree.o geotools.o
 	$(CC) $(LDFLAGS) -shared -o $@ $^ $(LDLIBS)
 	cp $@ ../lib/
 
@@ -59,5 +62,11 @@ analyze_data.o: analyze_data.cc
 analyze_data: analyze_data.o libkptrigger.so
 	$(CC) $(LDFLAGS) -o $@ analyze_data.o $(LDLIBS) -lkptrigger
 
+test_geotools.o: test_geotools.cc
+	$(CC) $(CFLAGS) -c -o $@ $^
+
+test_geotools: test_geotools.o libkptrigger.so
+	$(CC) $(LDFLAGS) -o $@ test_geotools.o $(LDLIBS) -lkptrigger
+
 clean: 
-	rm *.o scrape_data libkptrigger.so analyze_data aux_data
+	rm *.o scrape_data libkptrigger.so analyze_data aux_data test_geotools

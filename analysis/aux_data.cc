@@ -12,6 +12,8 @@
 #include "tree3.h"
 #include "PMTinfo.hh"
 
+#include "geotools.h"
+
 int main( int nargs, char** argv ) {
 
   // ------------------------------------------------------------------
@@ -39,7 +41,7 @@ int main( int nargs, char** argv ) {
   // CONSTANTS/PARAMETERS
   double detR = 150; // cm
   double detZ = 6000; // cm
-  double posv[3];
+  float posv[3];
 
   // --------------------------------
   // LOAD RAT FILE
@@ -64,6 +66,9 @@ int main( int nargs, char** argv ) {
   int ccqe; // 1 if CCQE
   int kdar; // kdar neutrino event
   double evisv;  // visible energy
+  geotools::GeoDef geom;
+  geom.radius = 1500;
+  geom.height = 2.0*45000;
   
   TTree* outtree = new TTree( "mcdata", "MC Data" );
   // recon
@@ -71,6 +76,7 @@ int main( int nargs, char** argv ) {
   outtree->Branch( "ccqe", &ccqe, "ccqe/I" );
   outtree->Branch( "kdar", &kdar, "kdar/I" );
   outtree->Branch( "enu", &enu, "enu/D" );
+  outtree->Branch( "evisv", &evisv, "evisv/D" );
 
   int ievent = 20;
   int nevents = ds->GetTotal();
@@ -123,6 +129,8 @@ int main( int nargs, char** argv ) {
     posv[0] = mc->GetMCParticle(0)->GetPosition().X()/10.0; //change to cm
     posv[1] = mc->GetMCParticle(0)->GetPosition().Y()/10.0; //change to cm
     posv[2] = mc->GetMCParticle(0)->GetPosition().Z()/10.0; //change to cm
+    double rv = sqrt( posv[0]*posv[0] + posv[1]*posv[1] );
+    double zv = posv[2];
 
     // enu
     enu = data.in_t[0];
@@ -142,38 +150,37 @@ int main( int nargs, char** argv ) {
     else
       cc = 0;
 
-//     // visible energy: muon
-//     if ( abs(data.post_pdg[0])==13 ) {
-//       double norm = sqrt( data.post_x[0]*data.post_x[0] + data.post_y[0]*data.post_y[0] + data.post_z[0]*data.post_z[0] );
-//       double v[3] = { post_x[0]/norm, post_y[0]/norm, post_z[0]/norm };
+    evisv = 0;
+    if ( rv<geom.radius && fabs(zv)<0.5*geom.height ) {
+      // only if in target volume
+      for (int ipart=0; ipart<data.post_; ipart++) {
+	// visible energy: muon
+	if ( abs(data.post_pdg[ipart])==13 ) {
+	  double norm = sqrt( data.post_x[ipart]*data.post_x[ipart] + data.post_y[ipart]*data.post_y[ipart] + data.post_z[ipart]*data.post_z[ipart] );
+	  float dir[3] = { data.post_x[ipart]/norm, data.post_y[ipart]/norm, data.post_z[ipart]/norm }; // dir
+	  double muon_ke_mev = data.post_t[ipart]-105.7; // Energy
+	  
+	  // we want to find intersection against the wall
+	  geotools::Intersection ans;
+	  geotools::RayCylinderIntersection( posv, dir, geom, ans );
+	  if ( ans.intersectionType==geotools::kForBack ) {
+	    double dist2wall = ans.distToNearFor;
+	    double est_range = muon_ke_mev/(1.7*0.86); // stopping power, density, distance
+	    if ( dist2wall<est_range )
+	      evisv+=muon_ke_mev;
+	    else
+	      evisv+=muon_ke_mev*(est_range/dist2wall);
+	  }
+	}
+	else if ( abs(data.post_pdg[ipart])==2212 ) {
+	  // proton
+	  // assume range is short
+	  evisv += data.post_t[ipart];
+	}
+      }
+    }//if true vertex
+      
 
-//       // we need distance along direction to edge of det
-//       // endcaps
-//       double sz = 0;
-//       if ( v[2]>0 )
-// 	sz = detZ - posv[2];
-//       else
-// 	sz = -detZ - posv[2];
-//       sz /= v[2];
-
-//       double endxy[2] = { sz*v[0] + posv[0], sz*v[1] + posv[1] };
-//       double endr = sqrt( endxy[0]*endxy[0] + endxy[1]*endxy[1] );
-
-//       // sides: circle line intersection
-//       double x1[2] = { posv[0], posv[1] };
-//       double x2[2] = { posv[0]+v[0], posv[2]+v[1] };
-//       double signvy = v[1]/fabs(v[1]);
-//       double dr = sqrt(v[0]*v[0] + v[1]*v[1] );
-//       double D = x1[0]*x2[1] - x2[0]*x1[1];
-
-//       double discr = detR*detR*dr*dr - D*D;
-//       if ( discr >= 0 ) {
-// 	// intersection occurs
-	
-
-//       }
-
-//     }//visible energy calc for muon
 
 
     // ==================================================================================================================
