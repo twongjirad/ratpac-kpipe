@@ -11,7 +11,7 @@ LOCAL_INC = -I.
 
 
 #CFLAGS = -g -fPIC 
-CFLAGS = -O3
+CFLAGS = -O3 -fPIC
 #CFLAGS += -std=c++11
 CFLAGS += $(ROOT_INCLUDES) $(RAT_INCLUDES) $(LOCAL_INC)
 LDFLAGS += `root-config --ldflags` 
@@ -70,3 +70,4 @@ test_geotools: test_geotools.o libkptrigger.so
 
 clean: 
 	rm *.o scrape_data libkptrigger.so analyze_data aux_data test_geotools
+

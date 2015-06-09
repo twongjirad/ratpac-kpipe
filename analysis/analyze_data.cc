@@ -227,8 +227,8 @@ int main( int nargs, char** argv ) {
   tree->Branch( "tend_veto",  &tend_veto );
   tree->Branch( "twfm_integral", &twfm_integral, "twfm_integral/D" );
   tree->Branch( "twfm_veto_integral", &twfm_veto_integral, "twfm_veto_integral/D" );
-  tree->Branch( "twfm", &twfm );
-  tree->Branch( "twfm_veto", &twfm_veto );
+  //tree->Branch( "twfm", &twfm );
+  //tree->Branch( "twfm_veto", &twfm_veto );
   // cosmic truth
   if ( cry_mode ) {
     tree->Branch( "ncr_photons",  &ncr_photons, "ncr_photons/I" );
@@ -244,9 +244,9 @@ int main( int nargs, char** argv ) {
   }
 
 
-  int ievent = 20;
+  int ievent = 0;
   int nevents = ds->GetTotal();
-  nevents = 30;
+  //nevents = 200;
 
   KPPulseList pulselist;
   KPPulseList pulselist_veto;

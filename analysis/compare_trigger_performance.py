@@ -16,6 +16,7 @@ pairs = {0:{"nodark":"/net/nudsk0001/d00/scratch/taritree/kpipe_ana_nodarknoise_
 
 pair = pairs[4]
 
+
 wdark = TChain("mcdata")
 wdark.Add( pair["widark"] )
 wdark.SetAlias("wd","tend-ttrig")
@@ -23,7 +24,6 @@ wdark.SetAlias("wd","tend-ttrig")
 nodark = TChain("mcdata")
 nodark.Add( pair["nodark"] )
 nodark.SetAlias("nd.wd","nd.tend-nd.ttrig")
-
 
 wdark.AddFriend( nodark, 'nd' )
 
