@@ -10,7 +10,7 @@
 #include "RAT/DS/MC.hh"
 
 #include "tree3.h"
-#include "PMTinfo.hh"
+#include "pmtinfo.hh"
 
 int main( int nargs, char** argv ) {
 
@@ -39,7 +39,6 @@ int main( int nargs, char** argv ) {
   // CONSTANTS/PARAMETERS
   double detR = 150; // cm
   double detZ = 6000; // cm
-  double posv[3];
 
   // --------------------------------
   // LOAD RAT FILE
@@ -59,11 +58,12 @@ int main( int nargs, char** argv ) {
   TFile* out = new TFile(output.c_str(), "RECREATE" );
 
   // variables we want
-  int enu;  // starting neutrino energy
   int cc;   // 1 if CC
   int ccqe; // 1 if CCQE
   int kdar; // kdar neutrino event
+  double enu;  // starting neutrino energy
   double evisv;  // visible energy
+  double posv[3];
   
   TTree* outtree = new TTree( "mcdata", "MC Data" );
   // recon
@@ -71,10 +71,11 @@ int main( int nargs, char** argv ) {
   outtree->Branch( "ccqe", &ccqe, "ccqe/I" );
   outtree->Branch( "kdar", &kdar, "kdar/I" );
   outtree->Branch( "enu", &enu, "enu/D" );
+  outtree->Branch( "posv", posv, "posv[3]/D" );
 
-  int ievent = 20;
+  int ievent = 0;
   int nevents = ds->GetTotal();
-  nevents = 30;
+  //nevents = 10;
 
   std::cout << "Number of events: " << nevents << std::endl;
 
@@ -82,6 +83,7 @@ int main( int nargs, char** argv ) {
   // Event Loop
   while (ievent<nevents) {
     RAT::DS::Root* root = ds->GetEvent(ievent);
+    data.GetEntry( offset + ievent );
 
     // --------------------------------
     // Clear Variables
@@ -92,6 +94,7 @@ int main( int nargs, char** argv ) {
     ccqe = 0;
     kdar = 0;
     evisv = 0.0;
+    posv[0] = posv[1] = posv[2] = 0.0;
 
     // --------------------------------
 
@@ -128,7 +131,7 @@ int main( int nargs, char** argv ) {
     enu = data.in_t[0];
 
     // KDAR: Josh's esoteric criteron
-    if ( enu>235 && enu<237 )
+    if ( enu>235.0 && enu<237.0 )
       kdar = 1;
 
     // mode flags
