@@ -17,7 +17,7 @@ CFLAGS += $(ROOT_INCLUDES) $(RAT_INCLUDES) $(LOCAL_INC)
 LDFLAGS += `root-config --ldflags` 
 LDLIBS = $(RAT_LIBS) $(ROOT_LIBS) -lstdc++
 
-all: scrape_data libkptrigger.so analyze_data aux_data test_geotools
+all: scrape_data libkptrigger.so analyze_data aux_data test_geotools veto_dark_noise_study
 
 scrape_data.o: scrape_data.cc
 	$(CC) $(CFLAGS) -c -o $@ $^
@@ -68,6 +68,12 @@ test_geotools.o: test_geotools.cc
 test_geotools: test_geotools.o libkptrigger.so
 	$(CC) $(LDFLAGS) -o $@ test_geotools.o $(LDLIBS) -lkptrigger
 
+veto_dark_noise_study.o: veto_dark_noise_study.cc
+	$(CC) $(CFLAGS) -c -o $@ $^
+
+veto_dark_noise_study: veto_dark_noise_study.o libkptrigger.so
+	$(CC) $(LDFLAGS) -o $@ veto_dark_noise_study.o $(LDLIBS) -lkptrigger
+
 clean: 
-	rm *.o scrape_data libkptrigger.so analyze_data aux_data test_geotools
+	rm *.o scrape_data libkptrigger.so analyze_data aux_data test_geotools veto_dark_noise_study
 
